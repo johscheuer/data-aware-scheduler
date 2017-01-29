@@ -9,5 +9,7 @@ func dataLocator(clientset *kubernetes.Clientset, nodes []v1.Node, pod *v1.Pod) 
 	// TODO get Quobyte metadata -> where is data located
 	// parse podSpec for quobyte Mounts if there are non choose random node
 	// resolve Pod name to node name (if Quobyte runs containerized)
+
+	// Check MountPoint mit xattr -> http://man7.org/linux/man-pages/man7/xattr.7.html
 	return nodes[0], nil
 }
