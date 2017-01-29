@@ -1,0 +1,4 @@
+GOOS=linux bash build
+docker build -t johscheuer/data-aware-scheduler:0.0.1 .
+docker push johscheuer/data-aware-scheduler:0.0.1
+rm scheduler
