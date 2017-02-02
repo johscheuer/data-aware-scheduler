@@ -1,0 +1,76 @@
+posix_attrs {
+  id: 2
+  owner: "root"
+  group: "root"
+  mode: 33188
+  atime: 1486028088
+  ctime: 1486060028
+  mtime: 1486060028
+  size: 42949672960
+  nlinks: 1
+}
+system_attrs {
+  truncate_epoch: 6
+  issued_truncate_epoch: 6
+  read_only: false
+  windows_attributes: 0
+}
+storage_layout {
+  on_disk_format {
+    block_size_bytes: 4096
+    object_size_bytes: 8388608
+    crc_method: CRC_32C
+  }
+  distribution {
+    data_stripe_count: 1
+    code_stripe_count: 0
+  }
+}
+file_name: "1g.bin"
+parent_file_id: 1
+acl {
+}
+segment {
+  start_offset: 0
+  length: 10737418240
+  stripe {
+    version: 4
+    device_id: 4
+    device_id: 3
+    device_id: 10
+    replica_update_method: QUORUM
+  }
+}
+segment {
+  start_offset: 10737418240
+  length: 10737418240
+  stripe {
+    version: 1
+    device_id: 3
+    device_id: 5
+    device_id: 10
+    replica_update_method: QUORUM
+  }
+}
+segment {
+  start_offset: 21474836480
+  length: 10737418240
+  stripe {
+    version: 1
+    device_id: 3
+    device_id: 5
+    device_id: 4
+    replica_update_method: QUORUM
+  }
+}
+segment {
+  start_offset: 32212254720
+  length: 10737418240
+  stripe {
+    version: 1
+    device_id: 4
+    device_id: 5
+    device_id: 10
+    replica_update_method: QUORUM
+  }
+}

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"fmt"
+	"log"
+
+	"github.com/davecheney/xattr"
 	quobyte_api "github.com/johscheuer/api"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api/v1"
@@ -12,6 +16,17 @@ type dataLocator struct {
 	clientset         *kubernetes.Clientset
 }
 
+type segment struct {
+	startOffset int
+	length      int
+	stripe      *stripe
+}
+
+type stripe struct {
+	version    int
+	device_ids []uint64
+}
+
 func newDataLocator(quobyteAPIServer string, quobyteUser string, quobytePassword string, quobyteMountpoint string, clientset *kubernetes.Clientset) *dataLocator {
 	return &dataLocator{
 		quobyteClient:     quobyte_api.NewQuobyteClient(quobyteAPIServer, quobyteUser, quobytePassword),
@@ -20,44 +35,72 @@ func newDataLocator(quobyteAPIServer string, quobyteUser string, quobytePassword
 	}
 }
 
-func (d *dataLocator) find_node(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
-	// pod.ObjectMeta.
-	// TODO get Quobyte metadata -> where is data located
+// Scheduling types ->
+// 1.) data locality
+// 2.) i/o rate (SSD/HDD)
+func (d *dataLocator) findNode(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
+	var file string
+	var volume string
+
+	if f, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/file"]; ok {
+		// Operator needs to tell us which file(s) should be considered
+		file = f
+	}
+
+	if v, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/volume"]; ok {
+		// If there are more than one Quobyte Volume specified we need some help
+		volume = v
+	}
 	// parse podSpec for quobyte Mounts if there are non choose random node
-	// resolve Pod name to node name (if Quobyte runs containerized)
+	// Todo check if file and/or volume is suplied else return random node
 
-	// Check MountPoint mit xattr -> http://man7.org/linux/man-pages/man7/xattr.7.html
-	// -> per file -> add annotations?
-
-	// getfattr --encoding=text  -n quobyte.info {plugin-dir}/{Volume}/{filename} --> Get devices
-
+	// Get Quobyte metadata -> where is data located
+	device := getBestFittingDevice(fmt.Sprintf("%s/%s/%s", d.quobyteMountpoint, volume, file))
 	// Ask Quobyte API Where Device are located (on which Node)
+	node, err := d.getHostOfDevice(device)
+	if err != nil {
+		log.Println(err)
+	}
 
+	//TODO check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
+	// resolve Pod name to node name (if Quobyte runs containerized)
+	// else we can take Node IP
+
+	// Check if node is in node list else take another one
+
+	// not included in list just use a random one
+
+	// Assumption Quobyte + Kubernetes runs on all Nodes
 	return nodes[0], nil
 }
 
-/*
-
-		quobyteClient = quobyte_api.NewQuobyteClient(quobyteAPIServer, quobyteUser, quobytePassword),
-		quobyteMountpoint = quobyteMountpoint,
-		clientset = clientset,
-// wait for merge PR
-github.com/johscheuer/api
-func main() {
-	client := quobyte_api.NewQuobyteClient("http://localhost:7860", "admin", "quobyte")
-
-	endpoints, err := client.GetDeviceNetworkEndpoints(0)
+func getBestFittingDevice(filePath string) uint64 {
+	b, err := xattr.Getxattr(filePath, "quobyte.info")
 	if err != nil {
-		log.Fatalf("Error:", err)
+		log.Println(err)
 	}
 
-	fmt.Println(endpoints.Endpoints)
-
-	for e := range endpoints.Endpoints {
-		fmt.Println(e)
+	segments := parseXattrSegments(string(b))
+	for s := range segments {
+		log.Println(s)
 	}
-}*/
 
-/*
-quobyte.info="posix_attrs {  id: 2  owner: "root"  group: "root"  mode: 33188  atime: 1486028088  ctime: 1486031771  mtime: 1486031771  size: 42949672960  nlinks: 1}system_attrs {  truncate_epoch: 4  issued_truncate_epoch: 4  read_only: false  windows_attributes: 0}storage_layout {  on_disk_format {    block_size_bytes: 4096    object_size_bytes: 8388608    crc_method: CRC_32C  }  distribution {    data_stripe_count: 1    code_stripe_count: 0  }}file_name: "1g.bin"parent_file_id: 1acl {}segment {  start_offset: 0  length: 10737418240  stripe {    version: 4    device_id: 4    device_id: 3    device_id: 10    replica_update_method: QUORUM  }}segment {  start_offset: 10737418240  length: 10737418240  stripe {    version: 1    device_id: 3    device_id: 5    device_id: 10    replica_update_method: QUORUM  }}segment {  start_offset: 21474836480  length: 10737418240  stripe {    version: 1    device_id: 3    device_id: 5    device_id: 4    replica_update_method: QUORUM  }}segment {  start_offset: 32212254720  length: 10737418240  stripe {    version: 1    device_id: 4    device_id: 5    device_id: 10    replica_update_method: QUORUM  }}"
-*/
+	// we actually need to sort them by fitness
+	return findBestFit(segments)
+}
+
+func findBestFit(segments []*segment) uint64 {
+	// TODO first we take the first ID in the first segment
+	// TODO next step merge all segments and find biggest chunk
+	return 0
+}
+
+func (d *dataLocator) getHostOfDevice(device_id uint64) (string, error) {
+	endpoints, err := d.quobyteClient.GetDeviceNetworkEndpoints(uint64(device_id))
+	if err != nil {
+		return "", err
+	}
+
+	// We could check here also DeviceType -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
+	return endpoints.Endpoints[0].Hostname, nil
+}

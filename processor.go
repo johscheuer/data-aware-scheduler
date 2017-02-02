@@ -75,7 +75,7 @@ func (p *processor) schedulePod(pod *v1.Pod) error {
 		return fmt.Errorf("Unable to schedule pod (%s) failed to fit in any node", pod.ObjectMeta.Name)
 	}
 
-	node, err := p.dataLocator.find_node(nodes, pod)
+	node, err := p.dataLocator.findNode(nodes, pod)
 	if err != nil {
 		return err
 	}

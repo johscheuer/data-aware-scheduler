@@ -1,0 +1,65 @@
+package main
+
+import (
+	"log"
+	"strconv"
+	"strings"
+	"unicode"
+)
+
+func parseXattrSegments(output string) []*segment {
+	segments := []*segment{}
+	segs := strings.Split(output, "segment")
+
+	f := func(c rune) bool {
+		return !unicode.IsLetter(c) && !unicode.IsNumber(c) && c != '_'
+	}
+
+	for _, seg := range segs {
+		fields := strings.FieldsFunc(seg, f)
+		if fields[0] == "posix_attrs" {
+			continue
+		}
+
+		startOffset, err := strconv.Atoi(fields[1])
+		if err != nil {
+			log.Printf("Error during parse: %v", err)
+		}
+
+		length, err := strconv.Atoi(fields[3])
+		if err != nil {
+			log.Printf("Error during parse: %v", err)
+		}
+
+		s := &segment{
+			startOffset: startOffset,
+			length:      length,
+		}
+
+		st := &stripe{}
+
+		for i := 5; i < len(fields); i++ {
+			switch fields[i] {
+			case "version":
+				v, err := strconv.Atoi(fields[i+1])
+				if err != nil {
+					log.Printf("Error during parse: %v", err)
+				}
+				st.version = v
+				i++
+			case "device_id":
+				id, err := strconv.ParseUint(fields[i+1], 10, 64)
+				if err != nil {
+					log.Printf("Error during parse: %v", err)
+				}
+				st.device_ids = append(st.device_ids, id)
+				i++
+			}
+		}
+		s.stripe = st
+
+		segments = append(segments, s)
+	}
+
+	return segments
+}
