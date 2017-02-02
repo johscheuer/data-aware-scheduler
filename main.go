@@ -35,11 +35,12 @@ func main() {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
+	processor := newProcessor(clientset, doneChan, &wg, &dataLocator{})
 	wg.Add(1)
-	go monitorUnscheduledPods(clientset, doneChan, &wg)
+	go processor.monitorUnscheduledPods()
 
 	wg.Add(1)
-	go reconcileUnscheduledPods(clientset, 30, doneChan, &wg)
+	go processor.reconcileUnscheduledPods(30)
 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)

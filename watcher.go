@@ -13,6 +13,8 @@ import (
 	"k8s.io/client-go/1.5/pkg/watch"
 )
 
+
+
 func getNodes(clientset *kubernetes.Clientset) (*v1.NodeList, error) {
 	nodes, err := clientset.Core().Nodes().List(api.ListOptions{})
 	if err != nil {

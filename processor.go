@@ -10,48 +10,63 @@ import (
 	"k8s.io/client-go/1.5/pkg/api/v1"
 )
 
-var processorLock = &sync.Mutex{}
+type processor struct {
+	clientset     *kubernetes.Clientset
+	wg            *sync.WaitGroup
+	done          chan struct{}
+	processorLock *sync.Mutex
+	dataLocator   *dataLocator
+}
 
-func reconcileUnscheduledPods(clientset *kubernetes.Clientset, interval int, done chan struct{}, wg *sync.WaitGroup) {
+func newProcessor(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup, dataLocator *dataLocator) *processor {
+	return &processor{
+		processorLock: &sync.Mutex{},
+		wg:            wg,
+		done:          done,
+		clientset:     clientset,
+		dataLocator:   dataLocator,
+	}
+}
+
+func (p *processor) reconcileUnscheduledPods(interval int) {
 	for {
 		select {
 		case <-time.After(time.Duration(interval) * time.Second):
-			err := schedulePods(clientset)
-			if err != nil {
+			if err := p.schedulePods(); err != nil {
 				log.Println(err)
 			}
-		case <-done:
-			wg.Done()
+		case <-p.done:
+			p.wg.Done()
 			log.Println("Stopped reconciliation loop.")
 			return
 		}
 	}
 }
 
-func monitorUnscheduledPods(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup) {
-	pods, errc := watchUnscheduledPods(clientset)
+func (p *processor) monitorUnscheduledPods() {
+	pods, errc := watchUnscheduledPods(p.clientset)
 
 	for {
 		select {
 		case err := <-errc:
 			log.Println(err)
 		case pod := <-pods:
-			processorLock.Lock()
+			p.processorLock.Lock()
 			time.Sleep(2 * time.Second)
-			if err := schedulePod(clientset, pod); err != nil {
+			if err := p.schedulePod(pod); err != nil {
 				log.Println(err)
 			}
-			processorLock.Unlock()
-		case <-done:
-			wg.Done()
+			p.processorLock.Unlock()
+		case <-p.done:
+			p.wg.Done()
 			log.Println("Stopped scheduler.")
 			return
 		}
 	}
 }
 
-func schedulePod(clientset *kubernetes.Clientset, pod *v1.Pod) error {
-	nodes, err := fit(clientset, pod)
+func (p *processor) schedulePod(pod *v1.Pod) error {
+	nodes, err := fit(p.clientset, pod)
 	if err != nil {
 		return err
 	}
@@ -60,24 +75,24 @@ func schedulePod(clientset *kubernetes.Clientset, pod *v1.Pod) error {
 		return fmt.Errorf("Unable to schedule pod (%s) failed to fit in any node", pod.ObjectMeta.Name)
 	}
 
-	node, err := dataLocator(clientset, nodes, pod)
+	node, err := p.dataLocator.find_node(nodes, pod)
 	if err != nil {
 		return err
 	}
 
-	return bind(clientset, pod, node)
+	return bind(p.clientset, pod, node)
 }
 
-func schedulePods(clientset *kubernetes.Clientset) error {
-	processorLock.Lock()
-	defer processorLock.Unlock()
-	pods, err := getUnscheduledPods(clientset)
+func (p *processor) schedulePods() error {
+	p.processorLock.Lock()
+	defer p.processorLock.Unlock()
+	pods, err := getUnscheduledPods(p.clientset)
 	if err != nil {
 		return err
 	}
 
 	for _, pod := range pods {
-		if err := schedulePod(clientset, pod); err != nil {
+		if err := p.schedulePod(pod); err != nil {
 			log.Println(err)
 		}
 	}
