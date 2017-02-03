@@ -52,7 +52,7 @@ func parseXattrSegments(output string) []*segment {
 				if err != nil {
 					log.Printf("Error during parse: %v", err)
 				}
-				st.device_ids = append(st.device_ids, id)
+				st.deviceIDs = append(st.deviceIDs, id)
 				i++
 			}
 		}
