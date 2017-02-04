@@ -1,7 +1,9 @@
 package quobyte
 
 import (
+	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"unicode"
@@ -62,4 +64,21 @@ func parseXattrSegments(output string) []*segment {
 	}
 
 	return segments
+}
+
+func validateAPIURL(apiURL string) error {
+	url, err := url.Parse(apiURL)
+	if err != nil {
+		return err
+	}
+
+	if url.Scheme == "" {
+		return fmt.Errorf("Scheme is no set in URL: %s", apiURL)
+	}
+
+	if url.Host == "" {
+		return fmt.Errorf("Scheme is no set in URL: %s", apiURL)
+	}
+
+	return nil
 }

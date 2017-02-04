@@ -11,12 +11,11 @@ import (
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/tools/clientcmd"
 
-	quobyteAPI "github.com/johscheuer/api"
 	"github.com/johscheuer/data-aware-scheduler/quobyte"
 )
 
 var (
-	kubeconfig = flag.String("kubeconfig", "./config", "absolute path to the kubeconfig file")
+	schedulerConfigPath = flag.String("config", "./config.yaml", "absolute path to the scheduler config file")
 )
 
 const schedulerName = "data-aware-scheduler"
@@ -25,7 +24,10 @@ func main() {
 	log.Println("Starting data-aware-scheduler scheduler...")
 
 	flag.Parse()
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeconfig)
+
+	schedulerConfig := readConfig(*schedulerConfigPath)
+
+	config, err := clientcmd.BuildConfigFromFlags("", schedulerConfig.Kubeconfig)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -38,21 +40,17 @@ func main() {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
-	// TODO move this into config file
-	quobyteAPIServer := "localhost:7860"
-	quobyteUser := "admin"
-	quobytePassword := "quobyte"
-	quobyteMountpoint := "/var/lib/kubelet/plugins/kubernetes.io~quobyte"
-
-	dataLocator := &dataLocator{
-		dataBackend: quobyte.NewQuobyteBackend(
-			quobyteAPI.NewQuobyteClient(quobyteAPIServer, quobyteUser, quobytePassword),
-			quobyteMountpoint,
-			clientset,
-		),
+	var locator *dataLocator
+	if schedulerConfig.Backend == "quobyte" {
+		locator = &dataLocator{
+			dataBackend: quobyte.NewQuobyteBackend(
+				schedulerConfig.Opts,
+				clientset,
+			),
+		}
 	}
 
-	processor := newProcessor(clientset, doneChan, &wg, dataLocator)
+	processor := newProcessor(clientset, doneChan, &wg, locator)
 	wg.Add(1)
 	go processor.monitorUnscheduledPods()
 

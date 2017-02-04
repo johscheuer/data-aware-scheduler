@@ -19,10 +19,43 @@ type QuobyteBackend struct {
 	clientset         *kubernetes.Clientset
 }
 
-func NewQuobyteBackend(quobyteClient *quobyteAPI.QuobyteClient, quobyteMountpoint string, clientset *kubernetes.Clientset) *QuobyteBackend {
+func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) *QuobyteBackend {
+	var apiServer, user, password, mountpoint string
+
+	if u, ok := opts["user"]; ok {
+		user = u
+	} else {
+		user = "admin"
+		log.Println("Missing User in opts using default user 'admin'")
+	}
+
+	if p, ok := opts["password"]; ok {
+		password = p
+	} else {
+		password = "quobyte"
+		log.Println("Missing password in opts using default password 'quobyte'")
+	}
+
+	if a, ok := opts["apiserver"]; ok {
+		apiServer = a
+		if err := validateAPIURL(apiServer); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		apiServer = "http://localhost:7860"
+		log.Println("Missing API Server in opts using default apiServer 'http://localhost:7860'")
+	}
+
+	if m, ok := opts["mountpoint"]; ok {
+		mountpoint = m
+	} else {
+		mountpoint = "/var/lib/kubelet/plugins/kubernetes.io~quobyte"
+		log.Println("Missing Mountpoint in opts using default mountpoint '/var/lib/kubelet/plugins/kubernetes.io~quobyte'")
+	}
+
 	return &QuobyteBackend{
-		quobyteClient:     quobyteClient,
-		quobyteMountpoint: quobyteMountpoint,
+		quobyteClient:     quobyteAPI.NewQuobyteClient(apiServer, user, password),
+		quobyteMountpoint: mountpoint,
 		clientset:         clientset,
 	}
 }
@@ -76,18 +109,12 @@ func getDevices(filePath string) deviceList {
 		log.Println(err)
 	}
 
-	segments := parseXattrSegments(string(b))
-	for s := range segments {
-		log.Println(s)
-	}
-
-	return convertSegmentsToDevices(segments)
+	return convertSegmentsToDevices(parseXattrSegments(string(b)))
 }
 
 func convertSegmentsToDevices(segments []*segment) deviceList {
 	result := map[uint64]*device{}
 
-	// Go over all Segments -> strips
 	for _, seg := range segments {
 		for _, devID := range seg.stripe.deviceIDs {
 			if d, ok := result[devID]; ok {
@@ -119,7 +146,7 @@ func convertDeviceMapIntoSlice(devices map[uint64]*device) deviceList {
 }
 
 // Scheduling types ->
-// 1.) data locality
+// 1.) data locality -> works
 // 2.) i/o rate (SSD/HDD)
 // 3.) Allow multiple files and find best fitting node
 func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
@@ -137,6 +164,7 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	}
 
 	// TODO check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
+	// get all pods in namespace=quobyte role=data -> IP -> NodeStatus
 	// resolve Pod name to node name (if Quobyte runs containerized)
 	// else we can take Node IP
 
@@ -147,9 +175,11 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	// -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
 	// and implement smarter algos
 	if len(devices) == 0 {
-		return nodes[0], err
+		log.Printf("No suitable Devices found on Nodes -> first Node %s\n", nodes[0])
+		return nodes[0], nil
 	}
 
+	log.Printf("Schedule pod on Node %s\n", devices[0].node)
 	return devices[0].node, nil
 }
 
