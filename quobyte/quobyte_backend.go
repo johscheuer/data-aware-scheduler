@@ -163,7 +163,8 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 		log.Println(err)
 	}
 
-	// TODO check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
+	// TODO -> option in-kubernetes: True
+	// check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
 	// get all pods in namespace=quobyte role=data -> IP -> NodeStatus
 	// resolve Pod name to node name (if Quobyte runs containerized)
 	// else we can take Node IP
@@ -175,11 +176,11 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	// -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
 	// and implement smarter algos
 	if len(devices) == 0 {
-		log.Printf("No suitable Devices found on Nodes -> first Node %s\n", nodes[0])
+		log.Printf("No suitable Devices found on Nodes -> schedule on first Node in list %s\n", nodes[0].ObjectMeta.Labels["kubernetes.io/hostname"])
 		return nodes[0], nil
 	}
 
-	log.Printf("Schedule pod on Node %s\n", devices[0].node)
+	log.Printf("Schedule pod on Node %s\n", devices[0].node.ObjectMeta.Labels["kubernetes.io/hostname"])
 	return devices[0].node, nil
 }
 
