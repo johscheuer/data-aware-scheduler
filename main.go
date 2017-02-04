@@ -10,6 +10,9 @@ import (
 
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/tools/clientcmd"
+
+	quobyteAPI "github.com/johscheuer/api"
+	"github.com/johscheuer/data-aware-scheduler/quobyte"
 )
 
 var (
@@ -35,7 +38,21 @@ func main() {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
-	processor := newProcessor(clientset, doneChan, &wg, &dataLocator{})
+	// TODO move this into config file
+	quobyteAPIServer := "localhost:7860"
+	quobyteUser := "admin"
+	quobytePassword := "quobyte"
+	quobyteMountpoint := "/var/lib/kubelet/plugins/kubernetes.io~quobyte"
+
+	dataLocator := &dataLocator{
+		dataBackend: quobyte.NewQuobyteBackend(
+			quobyteAPI.NewQuobyteClient(quobyteAPIServer, quobyteUser, quobytePassword),
+			quobyteMountpoint,
+			clientset,
+		),
+	}
+
+	processor := newProcessor(clientset, doneChan, &wg, dataLocator)
 	wg.Add(1)
 	go processor.monitorUnscheduledPods()
 

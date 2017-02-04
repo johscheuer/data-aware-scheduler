@@ -1,4 +1,4 @@
-package main
+package quobyte
 
 import (
 	"io/ioutil"
@@ -60,15 +60,15 @@ func TestConvertSegmentsToDevices(t *testing.T) {
 		t.FailNow()
 	}
 
-	for k, dev := range devices {
-		expectedDevice, ok := expectedResults[k]
+	for _, dev := range devices {
+		expectedDevice, ok := expectedResults[dev.id]
 		if !ok {
-			log.Printf("Expected: Device ID %d but not found in %v", k, devices)
+			log.Printf("Expected: Device ID %d but not found in %v", dev.id, devices)
 			t.FailNow()
 		}
 
 		if dev.dataSize != expectedDevice.dataSize {
-			log.Printf("Expected DataSize for Device %d: %d got %d", k, expectedDevice.dataSize, dev.dataSize)
+			log.Printf("Expected DataSize for Device %d: %d got %d", dev.id, expectedDevice.dataSize, dev.dataSize)
 			t.FailNow()
 		}
 	}
