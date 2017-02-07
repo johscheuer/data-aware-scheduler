@@ -1,8 +1,6 @@
 package quobyte
 
 import (
-	"fmt"
-
 	quobyteAPI "github.com/johscheuer/api"
 	"github.com/johscheuer/data-aware-scheduler/databackend"
 	"k8s.io/client-go/1.5/kubernetes"
@@ -36,14 +34,6 @@ type device struct {
 	dataSize   uint64 // TODO use BigInt?
 	deviceType string // Fetch from Quobyte API -> SSD/HDD
 	node       v1.Node
-}
-
-type QuobyteMountNotFound struct {
-	Volume string
-}
-
-func (e *QuobyteMountNotFound) Error() string {
-	return fmt.Sprintf("Error: Volume Mount for Volume %s not found in PodSpec\n", e.Volume)
 }
 
 type deviceList []*device

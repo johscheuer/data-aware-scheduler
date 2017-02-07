@@ -1,6 +1,7 @@
 package quobyte
 
 import (
+	"fmt"
 	"log"
 	"path"
 	"sort"
@@ -189,13 +190,25 @@ func getDeviceDetails(quobyteClient *quobyteAPI.QuobyteClient, devices deviceLis
 	return nil
 }
 
+func validateVolume(volumeName string, volumes []v1.Volume) error {
+	for _, vol := range volumes {
+		if vol.VolumeSource.Quobyte == nil {
+			continue
+		}
+
+		if volumeName == vol.VolumeSource.Quobyte.Volume {
+			return nil
+		}
+
+	}
+
+	return fmt.Errorf("Error: Volume Mount for Volume %s not found in PodSpec\n", volumeName)
+}
+
 func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) {
 	var file string
 	var volume string
 	var diskType string
-
-	// TODO parse podSpec for quobyte Mounts if there are non
-	// choose random node
 
 	if f, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/file"]; ok {
 		// Operator needs to tell us which file(s) should be considered
@@ -204,8 +217,23 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) 
 
 	if v, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/volume"]; ok {
 		// If there are more than one Quobyte Volume specified we need some help
-		// Otherwise we could parse it from PodSpec
 		volume = v
+		if err := validateVolume(volume, pod.Spec.Volumes); err != nil {
+			return "", err
+		}
+	} else {
+		for _, vol := range pod.Spec.Volumes {
+			if vol.VolumeSource.Quobyte == nil {
+				continue
+			}
+
+			volume = vol.VolumeSource.Quobyte.Volume
+			break
+		}
+
+		if volume == "" {
+			return "", fmt.Errorf("No Quobyte Mount found in Podspec")
+		}
 	}
 
 	if d, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/type"]; ok {

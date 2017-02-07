@@ -1,0 +1,33 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: db
+  name: db
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
+        "scheduler.alpha.quobyte.com.data-aware/file": testFile.bin
+        "scheduler.alpha.quobyte.com.data-aware/type": "SSD"
+      labels:
+        app: db
+      name: db
+    spec:
+      containers:
+        - name: db
+          image: "nginx:1.11.1-alpine"
+          volumeMounts:
+          - mountPath: /mnt
+            name: quobytevolume
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "128M"
+      volumes:
+      - name: quobytevolume
+        quobyte:
+          registry: registry:7861
+          volume: TestVolume

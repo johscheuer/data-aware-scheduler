@@ -61,7 +61,7 @@ $ ./scheduler
 
 # TODO
 
-- [ ] Docs
+- [X] Docs
 - [ ] Memory in scheduling
 - [X] Localisation (mountpoint + xattr)
 - [X] Annotate used file ?
