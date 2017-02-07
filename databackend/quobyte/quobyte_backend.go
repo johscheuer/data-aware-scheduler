@@ -1,108 +1,44 @@
 package quobyte
 
 import (
-	"fmt"
 	"log"
 	"path"
 	"sort"
 
 	"github.com/davecheney/xattr"
 	quobyteAPI "github.com/johscheuer/api"
-	"github.com/johscheuer/data-aware-scheduler/databackend"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
-	"k8s.io/client-go/1.5/pkg/fields"
+	"k8s.io/client-go/1.5/pkg/labels"
 )
 
-type QuobyteBackend struct {
-	quobyteClient     *quobyteAPI.QuobyteClient
-	quobyteMountpoint string
-	clientset         *kubernetes.Clientset
+func ifEmptySetDefault(m map[string]string, key string, defaultString string) string {
+	if v, ok := m[key]; ok {
+		return v
+	}
+	log.Printf("Missing %[1]s in opts using default %[1]s '%[2]s'\n", key, defaultString)
+
+	return defaultString
 }
 
 func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) *QuobyteBackend {
-	var apiServer, user, password, mountpoint string
-
-	if u, ok := opts["user"]; ok {
-		user = u
-	} else {
-		user = "admin"
-		log.Println("Missing User in opts using default user 'admin'")
-	}
-
-	if p, ok := opts["password"]; ok {
-		password = p
-	} else {
-		password = "quobyte"
-		log.Println("Missing password in opts using default password 'quobyte'")
-	}
-
-	if a, ok := opts["apiserver"]; ok {
-		apiServer = a
-		if err := validateAPIURL(apiServer); err != nil {
-			log.Fatalln(err)
-		}
-	} else {
-		apiServer = "http://localhost:7860"
-		log.Println("Missing API Server in opts using default apiServer 'http://localhost:7860'")
-	}
-
-	if m, ok := opts["mountpoint"]; ok {
-		mountpoint = m
-	} else {
-		mountpoint = "/var/lib/kubelet/plugins/kubernetes.io~quobyte"
-		log.Println("Missing Mountpoint in opts using default mountpoint '/var/lib/kubelet/plugins/kubernetes.io~quobyte'")
+	apiServer := ifEmptySetDefault(opts, "apiserver", "http://localhost:7860")
+	if err := validateAPIURL(apiServer); err != nil {
+		log.Fatalln(err)
 	}
 
 	return &QuobyteBackend{
-		quobyteClient:     quobyteAPI.NewQuobyteClient(apiServer, user, password),
-		quobyteMountpoint: mountpoint,
+		quobyteClient: quobyteAPI.NewQuobyteClient(
+			apiServer,
+			ifEmptySetDefault(opts, "user", "admin"),
+			ifEmptySetDefault(opts, "password", "quobyte"),
+		),
+		quobyteMountpoint: ifEmptySetDefault(opts, "mountpoint", "/var/lib/kubelet/plugins/kubernetes.io~quobyte"),
+		inKubernetes:      ifEmptySetDefault(opts, "kubernetes", ""),
+		namespace:         ifEmptySetDefault(opts, "namespace", "quobyte"),
 		clientset:         clientset,
 	}
-}
-
-var _ databackend.DataBackend = &QuobyteBackend{}
-
-type segment struct {
-	startOffset int
-	length      int
-	stripe      *stripe
-}
-
-type stripe struct {
-	version   int
-	deviceIDs []uint64
-}
-
-type device struct {
-	id         uint64
-	host       string // Fetch from Quobyte API
-	dataSize   uint64 // TODO use BigInt?
-	deviceType string // Fetch from Quobyte API -> SSD/HDD
-	node       v1.Node
-}
-
-type QuobyteMountNotFound struct {
-	Volume string
-}
-
-func (e *QuobyteMountNotFound) Error() string {
-	return fmt.Sprintf("Error: Volume Mount for Volume %s not found in PodSpec\n", e.Volume)
-}
-
-type deviceList []*device
-
-func (devices deviceList) Len() int {
-	return len(devices)
-}
-
-func (devices deviceList) Less(i, j int) bool {
-	return devices[i].dataSize < devices[j].dataSize
-}
-
-func (devices deviceList) Swap(i, j int) {
-	devices[i], devices[j] = devices[j], devices[i]
 }
 
 func getDevices(filePath string) deviceList {
@@ -158,21 +94,25 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	}
 
 	// Get all devices that store data of this file
+	log.Println("Get All Devices")
 	devices := getDevices(filePath)
 
 	// Get Quobyte DeviceEndpoints -> where is data located (on which Node)
+	log.Println("Get All Device Details")
 	if err := getDeviceDetails(quobyteBackend.quobyteClient, devices); err != nil {
 		log.Println(err)
 	}
 
-	// TODO -> option in-kubernetes: True
-	// quobyteBackend.resolvePodIPToNodeIP(devices, "quobyte")
-	// check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
-	// get all pods in namespace=quobyte role=data -> IP -> NodeStatus
-	// resolve Pod name to node name (if Quobyte runs containerized)
-	// else we can take Node IP
+	// TODO -> option in-kubernetes: True not as String
+	if len(quobyteBackend.inKubernetes) > 0 {
+		log.Println("Resolve Pod IPs")
+		if err := quobyteBackend.resolvePodIPToNodeIP(devices, quobyteBackend.namespace); err != nil {
+			log.Println(err)
+		}
+	}
 
 	// Filter all nodes containing no devices
+	log.Println("Get potentials nodes")
 	devices = getDevicesOnPotentialNodes(devices, nodes)
 
 	// We could check here also DeviceType
@@ -188,24 +128,24 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 }
 
 func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList, namespace string) error {
-	// TODO return new Device List?
-	// TODO resolve Pod IP in Devices to Node IP
 	podList, err := quobyteBackend.clientset.Core().Pods(namespace).List(
 		api.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("metadata.labels.role", "data"),
+			LabelSelector: labels.SelectorFromSet(map[string]string{"role": "data"}),
 		})
 	if err != nil {
 		return err
 	}
 
 	for _, pod := range podList.Items {
-		// TODO get Pod IP
-		// get Device(s) with POD IP and replace Pod IP with Node IP
-		/*if pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/name"] == schedulerName {
-			unscheduledPods = append(unscheduledPods, &pod)
-		}*/
+		// TODO iterarte only over not resolved Devices
+		for _, dev := range devices {
+			if dev.host == pod.Status.PodIP {
+				dev.host = pod.Status.HostIP
 
-		_ = pod
+				log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", pod.Status.PodIP, pod.Status.HostIP, dev.id)
+			}
+		}
+
 	}
 
 	return nil

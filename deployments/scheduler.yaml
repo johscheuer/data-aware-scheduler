@@ -15,3 +15,6 @@ spec:
       containers:
         - name: scheduler
           image: johscheuer/data-aware-scheduler:0.0.1
+
+# TODO add configmap
+# TODO add volume mount

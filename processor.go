@@ -17,16 +17,16 @@ type processor struct {
 	wg            *sync.WaitGroup
 	done          chan struct{}
 	processorLock *sync.Mutex
-	databackend.DataBackend    *databackend
+	backend       databackend.DataBackend
 }
 
-func newProcessor(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup, databackend *databackend.DataBackend) *processor {
+func newProcessor(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup, backend databackend.DataBackend) *processor {
 	return &processor{
 		processorLock: &sync.Mutex{},
 		wg:            wg,
 		done:          done,
 		clientset:     clientset,
-		databackend:   databackend,
+		backend:       backend,
 	}
 }
 
@@ -46,6 +46,7 @@ func (p *processor) reconcileUnscheduledPods(interval int) {
 }
 
 func (p *processor) monitorUnscheduledPods() {
+	log.Println("Monitor unscheduled Pods")
 	pods, errc := watchUnscheduledPods(p.clientset)
 
 	for {
@@ -77,7 +78,7 @@ func (p *processor) schedulePod(pod *v1.Pod) error {
 		return fmt.Errorf("Unable to schedule pod (%s) failed to fit in any node", pod.ObjectMeta.Name)
 	}
 
-	node, err := p.databackend.GetBestFittingNode(nodes, pod)
+	node, err := p.backend.GetBestFittingNode(nodes, pod)
 	if err != nil {
 		return err
 	}

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/johscheuer/data-aware-scheduler/databackend"
+	"github.com/johscheuer/data-aware-scheduler/databackend/quobyte"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/tools/clientcmd"
-
-	"github.com/johscheuer/data-aware-scheduler/databackend/quobyte"
 )
 
 var (
@@ -26,7 +26,6 @@ func main() {
 	flag.Parse()
 
 	schedulerConfig := readConfig(*schedulerConfigPath)
-
 	config, err := clientcmd.BuildConfigFromFlags("", schedulerConfig.Kubeconfig)
 	if err != nil {
 		panic(err.Error())
@@ -40,15 +39,15 @@ func main() {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
-	var dataBackend *dataBackend.Databackend
+	var backend databackend.DataBackend
 	if schedulerConfig.Backend == "quobyte" {
-		dataBackend = quobyte.NewQuobyteBackend(
+		backend = quobyte.NewQuobyteBackend(
 			schedulerConfig.Opts,
 			clientset,
 		)
 	}
 
-	processor := newProcessor(clientset, doneChan, &wg, dataBackend)
+	processor := newProcessor(clientset, doneChan, &wg, backend)
 	wg.Add(1)
 	go processor.monitorUnscheduledPods()
 
