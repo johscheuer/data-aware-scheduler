@@ -8,6 +8,8 @@ import (
 
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api/v1"
+
+	"github.com/johscheuer/data-aware-scheduler/databackend"
 )
 
 type processor struct {
@@ -15,16 +17,16 @@ type processor struct {
 	wg            *sync.WaitGroup
 	done          chan struct{}
 	processorLock *sync.Mutex
-	dataLocator   *dataLocator
+	databackend.DataBackend    *databackend
 }
 
-func newProcessor(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup, dataLocator *dataLocator) *processor {
+func newProcessor(clientset *kubernetes.Clientset, done chan struct{}, wg *sync.WaitGroup, databackend *databackend.DataBackend) *processor {
 	return &processor{
 		processorLock: &sync.Mutex{},
 		wg:            wg,
 		done:          done,
 		clientset:     clientset,
-		dataLocator:   dataLocator,
+		databackend:   databackend,
 	}
 }
 
@@ -75,7 +77,7 @@ func (p *processor) schedulePod(pod *v1.Pod) error {
 		return fmt.Errorf("Unable to schedule pod (%s) failed to fit in any node", pod.ObjectMeta.Name)
 	}
 
-	node, err := p.dataLocator.findNode(nodes, pod)
+	node, err := p.databackend.GetBestFittingNode(nodes, pod)
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,9 @@ import (
 	quobyteAPI "github.com/johscheuer/api"
 	"github.com/johscheuer/data-aware-scheduler/databackend"
 	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/pkg/fields"
 )
 
 type QuobyteBackend struct {
@@ -164,12 +166,13 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	}
 
 	// TODO -> option in-kubernetes: True
+	// quobyteBackend.resolvePodIPToNodeIP(devices, "quobyte")
 	// check if quobyte runs in cluster -> mapping between Pod IP <-> Node IP
 	// get all pods in namespace=quobyte role=data -> IP -> NodeStatus
 	// resolve Pod name to node name (if Quobyte runs containerized)
 	// else we can take Node IP
 
-	// Filter all nodes containing no data
+	// Filter all nodes containing no devices
 	devices = getDevicesOnPotentialNodes(devices, nodes)
 
 	// We could check here also DeviceType
@@ -182,6 +185,30 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 
 	log.Printf("Schedule pod on Node %s\n", devices[0].node.ObjectMeta.Labels["kubernetes.io/hostname"])
 	return devices[0].node, nil
+}
+
+func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList, namespace string) error {
+	// TODO return new Device List?
+	// TODO resolve Pod IP in Devices to Node IP
+	podList, err := quobyteBackend.clientset.Core().Pods(namespace).List(
+		api.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector("metadata.labels.role", "data"),
+		})
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		// TODO get Pod IP
+		// get Device(s) with POD IP and replace Pod IP with Node IP
+		/*if pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/name"] == schedulerName {
+			unscheduledPods = append(unscheduledPods, &pod)
+		}*/
+
+		_ = pod
+	}
+
+	return nil
 }
 
 func getDevicesOnPotentialNodes(devices deviceList, nodes []v1.Node) deviceList {

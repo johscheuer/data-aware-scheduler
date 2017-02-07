@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/tools/clientcmd"
 
-	"github.com/johscheuer/data-aware-scheduler/quobyte"
+	"github.com/johscheuer/data-aware-scheduler/databackend/quobyte"
 )
 
 var (
@@ -40,17 +40,15 @@ func main() {
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
-	var locator *dataLocator
+	var dataBackend *dataBackend.Databackend
 	if schedulerConfig.Backend == "quobyte" {
-		locator = &dataLocator{
-			dataBackend: quobyte.NewQuobyteBackend(
-				schedulerConfig.Opts,
-				clientset,
-			),
-		}
+		dataBackend = quobyte.NewQuobyteBackend(
+			schedulerConfig.Opts,
+			clientset,
+		)
 	}
 
-	processor := newProcessor(clientset, doneChan, &wg, locator)
+	processor := newProcessor(clientset, doneChan, &wg, dataBackend)
 	wg.Add(1)
 	go processor.monitorUnscheduledPods()
 
