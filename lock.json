@@ -1,5 +1,5 @@
 {
-    "memo": "7d1f7a68c87c2d595a07b4e90f9d5362466ef0705f89ca8bad7f4f841c28cc02",
+    "memo": "49bd7988a6f2216aa8bc4feadd5f1468fc3f5da2802aa28e4ac24c3da7ae0968",
     "projects": [
         {
             "name": "cloud.google.com/go",
@@ -27,8 +27,8 @@
         },
         {
             "name": "github.com/blang/semver",
-            "version": "v3.4.0",
-            "revision": "57172d9388933074ce0fbba4e24fb287b6b57548",
+            "version": "v3.5.0",
+            "revision": "b38d23b8782a487059e8fc8773e9a5b228a77cb6",
             "packages": [
                 "."
             ]
@@ -36,7 +36,7 @@
         {
             "name": "github.com/coreos/go-oidc",
             "branch": "master",
-            "revision": "91db2d3a1eaa8c602081d611fec792aaf76bb819",
+            "revision": "f828b1fc9b58b59bd70ace766bfc190216b58b01",
             "packages": [
                 "jose",
                 "oauth2",
@@ -58,6 +58,14 @@
             "revision": "346938d642f2ec3594ed81d874461961cd0faa76",
             "packages": [
                 "spew"
+            ]
+        },
+        {
+            "name": "github.com/davecheney/xattr",
+            "branch": "master",
+            "revision": "dc6dbbe49f0b0bfcc98dedef66662d93462a720c",
+            "packages": [
+                "."
             ]
         },
         {
@@ -103,7 +111,7 @@
         {
             "name": "github.com/go-openapi/spec",
             "branch": "master",
-            "revision": "f81e0f768713035fe232cd0d44a1c56e4eef1383",
+            "revision": "02fb9cd3430ed0581e0ceb4804d5d4b3cc702694",
             "packages": [
                 "."
             ]
@@ -111,7 +119,7 @@
         {
             "name": "github.com/go-openapi/swag",
             "branch": "master",
-            "revision": "ccda4c1474f9391645ec012bc8a8c14012dbea3e",
+            "revision": "d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e",
             "packages": [
                 "."
             ]
@@ -174,6 +182,14 @@
             ]
         },
         {
+            "name": "github.com/johscheuer/api",
+            "branch": "master",
+            "revision": "bf713b5a4333f44504fa1ce63690de45cfed6413",
+            "packages": [
+                "."
+            ]
+        },
+        {
             "name": "github.com/jonboulle/clockwork",
             "version": "v0.1.0",
             "revision": "2eee05ed794112d45db504eb05aa693efd2b8b09",
@@ -192,7 +208,7 @@
         {
             "name": "github.com/mailru/easyjson",
             "branch": "master",
-            "revision": "edd3ef1dab48f1cc831d78c0602a79be7a7b1a5e",
+            "revision": "99e922cf9de1bc0ab38310c277cff32c2147e747",
             "packages": [
                 "jlexer",
                 "jwriter"
@@ -209,7 +225,7 @@
         {
             "name": "github.com/spf13/pflag",
             "branch": "master",
-            "revision": "a9a634f3de0a7529baded7ad6b0c7467d5c6eca7",
+            "revision": "9ff6c6923cfffbcd502984b8e0c80539a94968b7",
             "packages": [
                 "."
             ]
@@ -225,7 +241,7 @@
         {
             "name": "golang.org/x/crypto",
             "branch": "master",
-            "revision": "854ae91cdcbf914b499b1d7641d07859f3653481",
+            "revision": "59a182cab66ead4fe21e6472267504ac035edee2",
             "packages": [
                 "ssh/terminal"
             ]
@@ -233,7 +249,7 @@
         {
             "name": "golang.org/x/net",
             "branch": "master",
-            "revision": "f2499483f923065a842d38eb4c7f1927e6fc6e6d",
+            "revision": "236b8f043b920452504e263bc21d354427127473",
             "packages": [
                 "context",
                 "context/ctxhttp",
@@ -255,7 +271,7 @@
         {
             "name": "golang.org/x/sys",
             "branch": "master",
-            "revision": "d75a52659825e75fff6158388dddc6a5b04f9ba5",
+            "revision": "7a6e5648d140666db5d920909e082ca00a87ba2c",
             "packages": [
                 "unix"
             ]
@@ -263,7 +279,7 @@
         {
             "name": "golang.org/x/text",
             "branch": "master",
-            "revision": "ece019dcfd29abcf65d0d1dfe145e8faad097640",
+            "revision": "506f9d5c962f284575e88337e7d9296d27e729d3",
             "packages": [
                 "unicode/norm",
                 "width"
@@ -314,6 +330,7 @@
                 "1.5/pkg/api/unversioned",
                 "1.5/pkg/api/v1",
                 "1.5/pkg/fields",
+                "1.5/pkg/labels",
                 "1.5/pkg/watch",
                 "1.5/tools/clientcmd"
             ]
