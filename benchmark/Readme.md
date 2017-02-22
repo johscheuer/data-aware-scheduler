@@ -13,11 +13,13 @@
 
 ```
 # Move this into bechmarker.py
+# Manual
 kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume create mysql-store root root BASE 0777
 kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BASE 0777
 
 kubectl create -f jobs/config.yaml
 kubectl create -f jobs/setup_job.yaml
+kubectl create -f jobs/non_data_local.yaml
 ```
 ## Execute Benchmark
 
