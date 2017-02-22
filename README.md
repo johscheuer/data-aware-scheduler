@@ -66,5 +66,6 @@ $ ./scheduler
 - [X] Localisation (mountpoint + xattr)
 - [X] Annotate used file ?
 - [ ] Support DiskType
-- [ ] Support Multiple Files
+- [ ] Support Multiple Files/directory
 - [ ] Containerized Scheduler
+- [ ] look at tain
