@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-init
+spec:
+  template:
+    metadata:
+      name: benchmark-init
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: benchmark-init
+        image: mysql:8.0
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: root_password
+          - name: MYSQL_BENCH_USER
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: bench_user
+          - name: TABLE_SIZE
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: table_size
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 5Gi
+          requests:
+            cpu: 1000m
+            memory: 4Gi
+        command:
+          - /bin/bash
+          - -xec
+          - |
+            docker-entrypoint.sh mysqld &
+            apt-get -qq update
+            apt-get -qq -y install sysbench
+            until mysqladmin -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} status 2> /dev/null;
+            do
+                sleep 10
+            done
+            # Prepare Database
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "CREATE SCHEMA sbtest;"
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "SET GLOBAL max_connections = 2000;"
+
+            # Add Benchmark table
+            sysbench --db-driver=mysql --test=oltp --mysql-table-engine=innodb --oltp-table-size=${TABLE_SIZE} --mysql-host=localhost --mysql-port=3306 --mysql-user=${MYSQL_BENCH_USER} --mysql-password=${MYSQL_ROOT_PASSWORD} prepare
+        volumeMounts:
+            - name: mysql-store
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-store
+          quobyte:
+            registry: registry:7861
+            volume: mysql-store

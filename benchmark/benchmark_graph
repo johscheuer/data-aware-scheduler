@@ -1,0 +1,24 @@
+# output as png image
+set terminal png
+
+# save file to "benchmark.png"
+set output "benchmark.png"
+
+# graph title
+set title "Benchmark for Sysbench"
+
+# aspect ratio for image size
+set size 1,1
+
+# enable grid on y and x axis
+set grid y
+set grid x
+
+# x-axis label
+set xlabel "Threads"
+
+# y-axis label
+set ylabel "Transactions (tps)"
+
+# plot data from sysbench.csv
+plot "sysbench.csv" using (log($1)):2:xtic(1) with linesp notitle

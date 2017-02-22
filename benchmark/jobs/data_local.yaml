@@ -1,0 +1,73 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-local
+spec:
+  template:
+    metadata:
+      name: benchmark-local
+      annotations:
+        "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
+        "scheduler.alpha.quobyte.com.data-aware/file": /
+        "scheduler.alpha.quobyte.com.data-aware/volume": mysql-store
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: benchmark-local
+        image: mysql:8.0
+        env:
+          - name: MYSQL_ROOT_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: root_password
+          - name: MYSQL_BENCH_USER
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: bench_user
+          - name: TABLE_SIZE
+            valueFrom:
+              configMapKeyRef:
+                name: benchmark-config
+                key: table_size
+          - name: RES_FILE
+            value: "local.csv"
+        command:
+          - /bin/bash
+          - -xec
+          - |
+            docker-entrypoint.sh mysqld &
+            apt-get -qq update
+            apt-get -qq -y install sysbench
+            until mysqladmin -h $(hostname -i) -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} status 2> /dev/null;
+            do
+                sleep 10
+            done
+            # Run sysbench
+            rm -f sysbench.log
+            for i in 16 32 64 128 256 512 1024; do
+              sysbench --db-driver=mysql --test=oltp --num-threads=$i --max-requests=10000 --oltp-table-size=${TABLE_SIZE} --oltp-test-mode=complex --mysql-host=localhost --mysql-port=3306 --mysql-user=${user} --mysql-password=${PASSWORD}  >> sysbench.log
+            done
+            cat sysbench.log | egrep " cat|threads:|transactions:" | tr -d "\n" | sed 's/Number of threads: /\n/g' | sed 's/\[/\n/g' | sed 's/[A-Za-z\/]\{1,\}://g'| sed 's/ \.//g' | awk {'print $1 $3'} | sed 's/(/\t/g' > /results/${RES_FILE}
+        resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 1000m
+              memory: 4Gi
+        volumeMounts:
+            - name: result-store
+              mountPath: /results
+            - name: mysql-store
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: mysql-store
+          quobyte:
+            registry: registry:7861
+            volume: mysql-store
+        - name: result-store
+          quobyte:
+            registry: registry:7861
+            volume: result-store
