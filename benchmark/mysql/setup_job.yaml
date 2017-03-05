@@ -1,15 +1,15 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: benchmark-init
+  name: benchmark-init-mysql
 spec:
   template:
     metadata:
-      name: benchmark-init
+      name: benchmark-init-mysql
     spec:
       restartPolicy: Never
       containers:
-      - name: benchmark-init
+      - name: benchmark-init-mysql
         image: mysql:8.0
         env:
           - name: MYSQL_ROOT_PASSWORD
@@ -28,12 +28,12 @@ spec:
                 name: benchmark-config
                 key: table_size
         resources:
-          limits:
-            cpu: 2000m
-            memory: 5Gi
-          requests:
-            cpu: 1000m
-            memory: 4Gi
+            limits:
+              cpu: 8
+              memory: 16Gi
+            requests:
+              cpu: 6
+              memory: 12Gi
         command:
           - /bin/bash
           - -xec
@@ -46,11 +46,16 @@ spec:
                 sleep 10
             done
             # Prepare Database
-            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "CREATE SCHEMA sbtest;"
-            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "SET GLOBAL max_connections = 2000;"
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "CREATE SCHEMA test;"
+            # TODO move this in configmap
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "SET GLOBAL max_connections=2000;"
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "SET GLOBAL wait_timeout=60;"
+            mysql -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} -e "SET GLOBAL interactive_timeout=60;"
 
+            #mysql -uroot -pmysecret -e "CREATE SCHEMA sbtest;"
             # Add Benchmark table
-            sysbench --db-driver=mysql --test=oltp --mysql-table-engine=innodb --oltp-table-size=${TABLE_SIZE} --mysql-host=localhost --mysql-port=3306 --mysql-user=${MYSQL_BENCH_USER} --mysql-password=${MYSQL_ROOT_PASSWORD} prepare
+            sysbench --db-driver=mysql --test=oltp --oltp-table-size=${TABLE_SIZE} --mysql-db=test --mysql-user=${MYSQL_BENCH_USER} --mysql-password=${MYSQL_ROOT_PASSWORD} prepare
+            #sysbench --db-driver=mysql --test=oltp --mysql-table-engine=innodb --oltp-table-size=${TABLE_SIZE} --mysql-host=localhost --mysql-port=3306 --mysql-user=${MYSQL_BENCH_USER} --mysql-password=${MYSQL_ROOT_PASSWORD} prepare
         volumeMounts:
             - name: mysql-store
               mountPath: /var/lib/mysql

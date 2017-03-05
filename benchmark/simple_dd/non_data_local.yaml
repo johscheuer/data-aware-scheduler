@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchmark-non-local-dd
+spec:
+  template:
+    metadata:
+      name: benchmark-non-local-dd
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: benchmark-non-local-dd
+        image: ubuntu:16.04
+        env:
+          - name: RES_FILE
+            value: "non_local_dd.csv"
+        command:
+          - /bin/bash
+          - -xec
+          - |
+            dd if=/test/benchmark.bin of=/dev/zero &> /results/${RES_FILE}
+        resources:
+            limits:
+              cpu: 2000m
+              memory: 4Gi
+            requests:
+              cpu: 1000m
+              memory: 4Gi
+        volumeMounts:
+            - name: result-store
+              mountPath: /results
+            - name: dd-test
+              mountPath: /test
+      volumes:
+        - name: dd-test
+          quobyte:
+            registry: registry:7861
+            volume: dd-test
+        - name: result-store
+          quobyte:
+            registry: registry:7861
+            volume: result-store
