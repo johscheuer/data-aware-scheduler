@@ -11,6 +11,7 @@ import (
 type schedulerConfig struct {
 	Kubeconfig string
 	Backend    string
+	InCluster  bool
 	Opts       map[string]string
 }
 

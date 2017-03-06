@@ -11,6 +11,7 @@ import (
 	"github.com/johscheuer/data-aware-scheduler/databackend"
 	"github.com/johscheuer/data-aware-scheduler/databackend/quobyte"
 	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/rest"
 	"k8s.io/client-go/1.5/tools/clientcmd"
 )
 
@@ -24,23 +25,28 @@ func main() {
 	log.Println("Starting data-aware-scheduler scheduler...")
 
 	flag.Parse()
-
 	schedulerConfig := readConfig(*schedulerConfigPath)
-	config, err := clientcmd.BuildConfigFromFlags("", schedulerConfig.Kubeconfig)
+
+	var cfg *rest.Config
+	var err error
+	if schedulerConfig.InCluster {
+		log.Println("Starting data-aware-scheduler in Cluster")
+		cfg, err = rest.InClusterConfig()
+	} else {
+		log.Println("Starting data-aware-scheduler out of Cluster")
+		cfg, err = clientcmd.BuildConfigFromFlags("", schedulerConfig.Kubeconfig)
+	}
 	if err != nil {
 		panic(err.Error())
 	}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-
+	clientset := kubernetes.NewForConfigOrDie(cfg)
 	doneChan := make(chan struct{})
 	var wg sync.WaitGroup
 
 	var backend databackend.DataBackend
 	if schedulerConfig.Backend == "quobyte" {
+		log.Println("Starting data-aware-scheduler with Quobyte backend")
 		backend = quobyte.NewQuobyteBackend(
 			schedulerConfig.Opts,
 			clientset,

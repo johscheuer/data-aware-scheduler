@@ -209,10 +209,15 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) 
 	var file string
 	var volume string
 	var diskType string
+	var dir string
+	//todo add dir
 
 	if f, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/file"]; ok {
-		// Operator needs to tell us which file(s) should be considered
 		file = f
+	}
+
+	if d, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/dir"]; ok {
+		dir = d
 	}
 
 	if v, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/volume"]; ok {
@@ -232,15 +237,20 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) 
 		}
 
 		if volume == "" {
-			return "", fmt.Errorf("No Quobyte Mount found in Podspec")
+			return "", fmt.Errorf("Error: No Quobyte Mount found in Podspec for %s", pod.ObjectMeta.Name)
 		}
 	}
 
 	if d, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/type"]; ok {
-		// Optional
+		// Not implemented
 		diskType = d
 		_ = diskType
 	}
 
+	if dir == "" && file == "" {
+		return "", fmt.Errorf("Error: no File or Dir specified for Podspec %s", pod.ObjectMeta.Name)
+	}
+
+	//TODO return slice??
 	return path.Join(quobyteBackend.quobyteMountpoint, volume, file), nil
 }

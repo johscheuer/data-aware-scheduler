@@ -4,7 +4,7 @@ metadata:
   labels:
     app: scheduler
   name: scheduler
-  namespace: quobyte
+  namespace: kube-system
 spec:
   replicas: 1
   template:
@@ -16,11 +16,12 @@ spec:
       containers:
         - name: scheduler
           image: johscheuer/data-aware-scheduler:0.0.1
+          args: ["--config=/etc/scheduler/scheduler_config.yaml"]
           volumeMounts:
           - mountPath: /var/lib/kubelet/plugins/kubernetes.io~quobyte
             name: plugin-dir
           - name: scheduler-config
-            mountPath: /
+            mountPath: /etc/scheduler/
       volumes:
       - name: plugin-dir
         hostPath:
@@ -33,13 +34,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: scheduler-config
-  namespace: quobyte
+  namespace: kube-system
 data:
-  config.yaml: |-
-    kubeconfig: ./config
+  scheduler_config.yaml: |-
+    incluster: True
+    #kubeconfig: ./config
     backend: quobyte
     opts:
-      apiserver: http://api
+      apiserver: http://api.quobyte.svc.cluster.local
       mountpoint: /var/lib/kubelet/plugins/kubernetes.io~quobyte
       password: quobyte
       user: admin
