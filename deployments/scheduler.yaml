@@ -2,19 +2,19 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   labels:
-    app: scheduler
-  name: scheduler
+    app: data-aware-scheduler
+  name: data-aware-scheduler
   namespace: kube-system
 spec:
   replicas: 1
   template:
     metadata:
       labels:
-        app: scheduler
-      name: scheduler
+        app: data-aware-scheduler
+      name: data-aware-scheduler
     spec:
       containers:
-        - name: scheduler
+        - name: data-aware-scheduler
           image: johscheuer/data-aware-scheduler:0.0.2
           args: ["--config=/etc/scheduler/scheduler_config.yaml"]
           imagePullPolicy: Always
