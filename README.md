@@ -31,10 +31,31 @@ $ docker push johscheuer/data-aware-scheduler:$VERSION
 - Running Quobyte Cluster
 - Running Kubernetes Cluster
 
-```
+### Inside Kubernetes
+
+Adjust config `deployments/scheduler_config.yaml` to your need:
 
 ```
+kubectl create --namespace=kube-system -f deployments/scheduler_config.yaml
+kubectl create --namespace=kube-system -f deployments/scheduler.yaml
+```
 
+### Outside Kubernetes
+
+At the moment you need a local mount of Quobyte with xattr enabled (`-o user_xattr`). As soon as the same information is available over the API this requierement drops.
+
+Copy the example configuration and adjust it to your needs:
+
+```bash
+copy config.yaml.example config.yaml
+```
+
+Now start the Scheduler:
+
+```bash
+./scheduler --config=./config.yaml
+
+```
 
 # TODO
 

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+  namespace: kube-system
+data:
+  scheduler_config.yaml: |-
+    incluster: True
+    #kubeconfig: ./config
+    backend: quobyte
+    opts:
+      apiserver: http://api.quobyte.svc.cluster.local
+      mountpoint: /var/lib/kubelet/plugins/kubernetes.io~quobyte
+      password: quobyte
+      user: admin
+      kubernetes: "True"
+      namespace: quobyte
