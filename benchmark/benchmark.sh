@@ -16,17 +16,17 @@ function wait_for_completion() {
 }
 
 function cleanup_volume() {
-    if kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume show $1 &> /dev/null;
+    if kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume show $1 &> /dev/null;
     then
-        kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume delete $1 root root BENCHMARK 0777
+        kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume delete $1 root root BENCHMARK 0777
     fi
 
-    kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume create $1 root root BENCHMARK 0777
+    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create $1 root root BENCHMARK 0777
 }
 
-if [ $(kubectl exec -n quobyte -it qmgmt-pod -- qmgmt -u api:7860 volume config list | grep BENCHMARK | wc -l) -eq 0 ];
+if [ $(kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config list | grep BENCHMARK | wc -l) -eq 0 ];
 then
-    cat ./quobyte_config.dump | kubectl exec -n quobyte -it qmgmt-pod -- qmgmt -u api:7860 volume config import BENCHMARK
+    cat ./quobyte_config.dump | kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config import BENCHMARK
 fi
 
 kubectl delete -f simple_dd/ &> /dev/null
@@ -35,9 +35,9 @@ kubectl delete -f simple_dd/ &> /dev/null
 cleanup_volume mysql-store
 cleanup_volume dd-test
 
-if ! kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume show result-store &> /dev/null;
+if ! kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume show result-store &> /dev/null;
 then
-    kubectl -n quobyte exec -it qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BENCHMARK 0777
+    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BENCHMARK 0777
 fi
 
 echo "Run Benchmark with dd"

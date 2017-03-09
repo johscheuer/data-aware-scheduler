@@ -41,6 +41,7 @@ spec:
             docker-entrypoint.sh mysqld &
             apt-get -qq update
             apt-get -qq -y install sysbench
+            # Add check if access is possible
             until mysqladmin -u${MYSQL_BENCH_USER} -p${MYSQL_ROOT_PASSWORD} status 2> /dev/null;
             do
                 sleep 10
