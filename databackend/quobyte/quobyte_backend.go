@@ -42,13 +42,13 @@ func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) 
 	}
 }
 
-func getDevices(filePath string) deviceList {
+func getDevices(filePath string) (deviceList, error) {
 	b, err := xattr.Getxattr(filePath, "quobyte.info")
 	if err != nil {
-		log.Println(err)
+		return deviceList{}, err
 	}
 
-	return convertSegmentsToDevices(parseXattrSegments(string(b)))
+	return convertSegmentsToDevices(parseXattrSegments(string(b))), nil
 }
 
 func convertSegmentsToDevices(segments []*segment) deviceList {
@@ -89,26 +89,30 @@ func convertDeviceMapIntoSlice(devices map[uint64]*device) deviceList {
 // 2.) i/o rate (SSD/HDD)
 // 3.) Allow multiple files and find best fitting node
 func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
+	log.Printf("Find best fitting Node for Pod: %s\n", pod.ObjectMeta.Name)
 	filePath, err := quobyteBackend.parsePodSpec(pod)
 	if err != nil {
-		return nodes[0], err
+		return v1.Node{}, err
 	}
 
 	// Get all devices that store data of this file
 	log.Println("Get All Devices")
-	devices := getDevices(filePath)
+	devices, err := getDevices(filePath)
+	if err != nil {
+		return v1.Node{}, err
+	}
 
 	// Get Quobyte DeviceEndpoints -> where is data located (on which Node)
 	log.Println("Get All Device Details")
 	if err := getDeviceDetails(quobyteBackend.quobyteClient, devices); err != nil {
-		log.Println(err)
+		return v1.Node{}, err
 	}
 
 	// TODO -> option in-kubernetes: True not as String
 	if len(quobyteBackend.inKubernetes) > 0 {
 		log.Println("Resolve Pod IPs")
 		if err := quobyteBackend.resolvePodIPToNodeIP(devices, quobyteBackend.namespace); err != nil {
-			log.Println(err)
+			return v1.Node{}, err
 		}
 	}
 
