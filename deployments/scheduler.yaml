@@ -17,6 +17,7 @@ spec:
         - name: scheduler
           image: johscheuer/data-aware-scheduler:0.0.1
           args: ["--config=/etc/scheduler/scheduler_config.yaml"]
+          imagePullPolicy: Always
           volumeMounts:
           - mountPath: /var/lib/kubelet/plugins/kubernetes.io~quobyte
             name: plugin-dir

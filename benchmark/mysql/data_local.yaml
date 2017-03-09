@@ -8,7 +8,7 @@ spec:
       name: benchmark-local
       annotations:
         "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
-        "scheduler.alpha.quobyte.com.data-aware/file": /
+        "scheduler.alpha.quobyte.com.data-aware/dir": /
         "scheduler.alpha.quobyte.com.data-aware/volume": mysql-store
     spec:
       restartPolicy: Never

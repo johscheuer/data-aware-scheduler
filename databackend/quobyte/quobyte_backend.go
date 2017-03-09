@@ -5,6 +5,7 @@ import (
 	"log"
 	"path"
 	"sort"
+	"strings"
 
 	"github.com/davecheney/xattr"
 	quobyteAPI "github.com/johscheuer/api"
@@ -42,13 +43,32 @@ func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) 
 	}
 }
 
-func getDevices(filePath string) (deviceList, error) {
-	b, err := xattr.Getxattr(filePath, "quobyte.info")
-	if err != nil {
-		return deviceList{}, err
+func getSegmentsForFiles(files []string) []*segment {
+	segments := []*segment{}
+	for _, file := range files {
+		b, err := xattr.Getxattr(file, "quobyte.info")
+		if err != nil {
+			log.Printf("QuobyteBackend: Failed fetching Segements from file %s\n%s\n", file, err)
+		}
+		segments = append(segments, parseXattrSegments(string(b))...)
 	}
 
-	return convertSegmentsToDevices(parseXattrSegments(string(b))), nil
+	return segments
+}
+
+func getDevices(input *quobyteInput) (deviceList, error) {
+	var segments []*segment
+
+	if input.dir != "" {
+		files := getAllFilesInsideDir(input.dir)
+		segments = append(segments, getSegmentsForFiles(files)...)
+	}
+
+	if len(input.files) > 0 {
+		segments = append(segments, getSegmentsForFiles(input.files)...)
+	}
+
+	return convertSegmentsToDevices(segments), nil
 }
 
 func convertSegmentsToDevices(segments []*segment) deviceList {
@@ -87,32 +107,36 @@ func convertDeviceMapIntoSlice(devices map[uint64]*device) deviceList {
 // Scheduling types ->
 // 1.) data locality -> works
 // 2.) i/o rate (SSD/HDD)
-// 3.) Allow multiple files and find best fitting node
+// 3.) Allow multiple files and find best fitting node -> works
 func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
 	log.Printf("Find best fitting Node for Pod: %s\n", pod.ObjectMeta.Name)
-	filePath, err := quobyteBackend.parsePodSpec(pod)
+	input, err := quobyteBackend.parsePodSpec(pod)
 	if err != nil {
-		return v1.Node{}, err
+		log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
+		return nodes[0], nil
 	}
 
 	// Get all devices that store data of this file
 	log.Println("Get All Devices")
-	devices, err := getDevices(filePath)
+	devices, err := getDevices(input)
 	if err != nil {
-		return v1.Node{}, err
+		log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
+		return nodes[0], nil
 	}
 
 	// Get Quobyte DeviceEndpoints -> where is data located (on which Node)
 	log.Println("Get All Device Details")
 	if err := getDeviceDetails(quobyteBackend.quobyteClient, devices); err != nil {
-		return v1.Node{}, err
+		log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
+		return nodes[0], nil
 	}
 
 	// TODO -> option in-kubernetes: True not as String
 	if len(quobyteBackend.inKubernetes) > 0 {
 		log.Println("Resolve Pod IPs")
 		if err := quobyteBackend.resolvePodIPToNodeIP(devices, quobyteBackend.namespace); err != nil {
-			return v1.Node{}, err
+			log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
+			return nodes[0], nil
 		}
 	}
 
@@ -161,7 +185,6 @@ func getDevicesOnPotentialNodes(devices deviceList, nodes []v1.Node) deviceList 
 
 	// O(Devices x Nodes)
 	for _, dev := range devices {
-
 		for _, node := range nodes {
 			for _, addr := range node.Status.Addresses {
 				if dev.host == addr.Address {
@@ -209,26 +232,29 @@ func validateVolume(volumeName string, volumes []v1.Volume) error {
 	return fmt.Errorf("Error: Volume Mount for Volume %s not found in PodSpec\n", volumeName)
 }
 
-func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) {
-	var file string
+func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (*quobyteInput, error) {
+	input := &quobyteInput{files: []string{}}
 	var volume string
 	var diskType string
-	var dir string
-	//todo add dir
 
-	if f, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/file"]; ok {
-		file = f
+	if f, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/files"]; ok {
+		split := strings.Split(f, ",")
+		input.files = make([]string, len(split))
+		for i, file := range split {
+			input.files[i] = file
+		}
 	}
 
 	if d, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/dir"]; ok {
-		dir = d
+		input.dir = d
 	}
 
+	// Files must be in the same volumes -> could be extended for an look up -> what if duplicate
 	if v, ok := pod.ObjectMeta.Annotations["scheduler.alpha.quobyte.com.data-aware/volume"]; ok {
 		// If there are more than one Quobyte Volume specified we need some help
 		volume = v
 		if err := validateVolume(volume, pod.Spec.Volumes); err != nil {
-			return "", err
+			return input, err
 		}
 	} else {
 		for _, vol := range pod.Spec.Volumes {
@@ -241,7 +267,7 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) 
 		}
 
 		if volume == "" {
-			return "", fmt.Errorf("Error: No Quobyte Mount found in Podspec for %s", pod.ObjectMeta.Name)
+			return input, fmt.Errorf("Error: No Quobyte Mount found in Podspec for %s", pod.ObjectMeta.Name)
 		}
 	}
 
@@ -251,10 +277,11 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (string, error) 
 		_ = diskType
 	}
 
-	if dir == "" && file == "" {
-		return "", fmt.Errorf("Error: no File or Dir specified for Podspec %s", pod.ObjectMeta.Name)
+	for i := 0; i < len(input.files); i++ {
+		input.files[i] = path.Join(quobyteBackend.quobyteMountpoint, volume, input.files[i])
 	}
 
-	//TODO return slice??
-	return path.Join(quobyteBackend.quobyteMountpoint, volume, file), nil
+	input.dir = path.Join(quobyteBackend.quobyteMountpoint, volume, input.dir)
+
+	return input, nil
 }

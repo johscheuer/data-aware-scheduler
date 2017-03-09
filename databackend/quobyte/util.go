@@ -2,6 +2,7 @@ package quobyte
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"strconv"
@@ -81,4 +82,24 @@ func validateAPIURL(apiURL string) error {
 	}
 
 	return nil
+}
+
+func getAllFilesInsideDir(dir string) []string {
+	resFiles := []string{}
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		log.Printf("QuobyteBackend: Failed reading files from dir %s\n%s\n", dir, err)
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+			//TODO do we allow recursive?
+			//resFiles = append(resFiles, getAllFilesInsideDir(file.Name())...)
+		}
+
+		resFiles = append(resFiles, file.Name())
+	}
+
+	return resFiles
 }

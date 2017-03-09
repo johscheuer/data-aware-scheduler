@@ -38,6 +38,11 @@ type device struct {
 
 type deviceList []*device
 
+type quobyteInput struct {
+	files []string
+	dir   string
+}
+
 func (devices deviceList) Len() int {
 	return len(devices)
 }

@@ -8,7 +8,7 @@ spec:
       name: benchmark-local-dd
       annotations:
         "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
-        "scheduler.alpha.quobyte.com.data-aware/file": benchmark.bin
+        "scheduler.alpha.quobyte.com.data-aware/files": benchmark.bin
         "scheduler.alpha.quobyte.com.data-aware/volume": dd-test
     spec:
       restartPolicy: Never

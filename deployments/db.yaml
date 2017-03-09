@@ -10,8 +10,7 @@ spec:
     metadata:
       annotations:
         "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
-        "scheduler.alpha.quobyte.com.data-aware/file": testFile2.bin
-        "scheduler.alpha.quobyte.com.data-aware/type": "SSD"
+        "scheduler.alpha.quobyte.com.data-aware/files": testFile2.bin
       labels:
         app: db
       name: db

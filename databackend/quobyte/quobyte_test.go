@@ -89,3 +89,5 @@ func TestValidateAPIURL(t *testing.T) {
 		}
 	}
 }
+
+//TODO add test for get device list + find fittest node -> mock calls

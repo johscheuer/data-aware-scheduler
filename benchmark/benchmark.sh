@@ -54,5 +54,5 @@ kubectl create -f simple_dd/data_local.yaml
 wait_for_completion benchmark-local-dd
 # TODO how to get results?
 
-
+#TODO mysql
 echo "Run Benchmark with mysql"

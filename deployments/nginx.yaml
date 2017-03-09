@@ -10,9 +10,8 @@ spec:
     metadata:
       annotations:
         "scheduler.alpha.kubernetes.io/name": data-aware-scheduler
-        "scheduler.alpha.quobyte.com.data-aware/file": testFile.bin
+        "scheduler.alpha.quobyte.com.data-aware/files": testFile.bin
         "scheduler.alpha.quobyte.com.data-aware/volume": TestVolume
-        "scheduler.alpha.quobyte.com.data-aware/type": "SSD"
       labels:
         app: nginx
       name: nginx

@@ -61,7 +61,7 @@ func watchUnscheduledPods(clientset *kubernetes.Clientset) (<-chan *v1.Pod, <-ch
 }
 
 // Move this into FieldSelector ?
-func data_aware_annotated(pod v1.Pod) bool {
+func data_aware_annotated(pod *v1.Pod) bool {
 	if val, ok := pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/name"]; ok {
 		return val == schedulerName
 	}
@@ -81,7 +81,7 @@ func getUnscheduledPods(clientset *kubernetes.Clientset) ([]*v1.Pod, error) {
 	}
 
 	for _, pod := range podList.Items {
-		if data_aware_annotated(pod) {
+		if data_aware_annotated(&pod) {
 			unscheduledPods = append(unscheduledPods, &pod)
 		}
 	}
