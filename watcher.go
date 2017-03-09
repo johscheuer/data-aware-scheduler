@@ -13,8 +13,6 @@ import (
 	"k8s.io/client-go/1.5/pkg/watch"
 )
 
-
-
 func getNodes(clientset *kubernetes.Clientset) (*v1.NodeList, error) {
 	nodes, err := clientset.Core().Nodes().List(api.ListOptions{})
 	if err != nil {
@@ -50,12 +48,26 @@ func watchUnscheduledPods(clientset *kubernetes.Clientset) (<-chan *v1.Pod, <-ch
 			}
 
 			if event.Type == watch.Added {
-				pods <- event.Object.(*v1.Pod)
+				unscheduled_pod := event.Object.(*v1.Pod)
+
+				if data_aware_annotated(unscheduled_pod) {
+					pods <- unscheduled_pod
+				}
 			}
 		}
 	}()
 
 	return pods, errc
+}
+
+// Move this into FieldSelector ?
+func data_aware_annotated(pod v1.Pod) bool {
+	if val, ok := pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/name"]; ok {
+		return val == schedulerName
+	}
+
+	// no annotation
+	return false
 }
 
 func getUnscheduledPods(clientset *kubernetes.Clientset) ([]*v1.Pod, error) {
@@ -69,7 +81,7 @@ func getUnscheduledPods(clientset *kubernetes.Clientset) ([]*v1.Pod, error) {
 	}
 
 	for _, pod := range podList.Items {
-		if pod.ObjectMeta.Annotations["scheduler.alpha.kubernetes.io/name"] == schedulerName {
+		if data_aware_annotated(pod) {
 			unscheduledPods = append(unscheduledPods, &pod)
 		}
 	}
