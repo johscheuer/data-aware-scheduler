@@ -22,7 +22,7 @@ var (
 const schedulerName = "data-aware-scheduler"
 
 func main() {
-	log.Println("Starting data-aware-scheduler scheduler...")
+	log.Println("Starting data-aware-scheduler...")
 
 	flag.Parse()
 	schedulerConfig := readConfig(*schedulerConfigPath)
