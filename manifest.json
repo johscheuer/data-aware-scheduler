@@ -1,5 +1,8 @@
 {
     "dependencies": {
+        "github.com/johscheuer/api": {
+            "revision": "e9189e1516d7bc2fdbe909ddaeec51394f8cacb6"
+        },
         "k8s.io/client-go": {
             "branch": "release-1.5"
         }
