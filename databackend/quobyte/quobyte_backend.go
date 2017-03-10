@@ -9,25 +9,30 @@ import (
 
 	"github.com/davecheney/xattr"
 	quobyteAPI "github.com/johscheuer/api"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/labels"
 )
 
-func ifEmptySetDefault(m map[string]string, key string, defaultString string) string {
+func ifEmptySetDefault(m map[string]interface{}, key string, defaultString string) string {
 	if v, ok := m[key]; ok {
-		return v
+		return v.(string)
 	}
 	log.Printf("Missing %[1]s in opts using default %[1]s '%[2]s'\n", key, defaultString)
 
 	return defaultString
 }
 
-func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) *QuobyteBackend {
+func NewQuobyteBackend(opts map[string]interface{}, clientset *kubernetes.Clientset) *QuobyteBackend {
+	var inKubernetes bool
 	apiServer := ifEmptySetDefault(opts, "apiserver", "http://localhost:7860")
 	if err := validateAPIURL(apiServer); err != nil {
 		log.Fatalln(err)
+	}
+	if v, ok := opts["kubernetes"]; ok {
+		inKubernetes = v.(bool)
 	}
 
 	return &QuobyteBackend{
@@ -37,9 +42,9 @@ func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) 
 			ifEmptySetDefault(opts, "password", "quobyte"),
 		),
 		quobyteMountpoint: ifEmptySetDefault(opts, "mountpoint", "/var/lib/kubelet/plugins/kubernetes.io~quobyte"),
-		inKubernetes:      ifEmptySetDefault(opts, "kubernetes", ""),
 		namespace:         ifEmptySetDefault(opts, "namespace", "quobyte"),
 		clientset:         clientset,
+		inKubernetes:      inKubernetes,
 	}
 }
 
@@ -137,6 +142,9 @@ func convertDeviceMapIntoSlice(devices map[uint64]*device) deviceList {
 // 2.) i/o rate (SSD/HDD)
 // 3.) Allow multiple files and find best fitting node -> works
 func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v1.Pod) (v1.Node, error) {
+	defer stop_trace(start_trace())
+	var eg errgroup.Group
+
 	log.Printf("Find best fitting Node for Pod: %s\n", pod.ObjectMeta.Name)
 	input, err := quobyteBackend.parsePodSpec(pod)
 	if err != nil {
@@ -144,14 +152,18 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 		return nodes[0], nil
 	}
 
+	if quobyteBackend.inKubernetes {
+		eg.Go(func() error { return quobyteBackend.getAllDataPods() })
+	}
+
 	devices := quobyteBackend.getQuobyteDevices(input)
 	if len(devices) == 0 {
 		return nodes[0], nil
 	}
 
-	// TODO -> option in-kubernetes: True not as String
-	if len(quobyteBackend.inKubernetes) > 0 {
-		if err := quobyteBackend.resolvePodIPToNodeIP(devices, quobyteBackend.namespace); err != nil {
+	if quobyteBackend.inKubernetes {
+		quobyteBackend.resolvePodIPToNodeIP(devices)
+		if err := eg.Wait(); err != nil {
 			log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
 			return nodes[0], nil
 		}
@@ -170,27 +182,33 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	return devices[0].node, nil
 }
 
-func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList, namespace string) error {
-	log.Println("Resolve Pod IPs")
-	podList, err := quobyteBackend.clientset.Core().Pods(namespace).List(
+func (quobyteBackend *QuobyteBackend) getAllDataPods() error {
+	log.Println("Get all Data Pod")
+	result := map[string]string{}
+	podList, err := quobyteBackend.clientset.Core().Pods(quobyteBackend.namespace).List(
 		api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{"role": "data"}),
 		})
 	if err != nil {
+		log.Printf("Error fetching all data nodes %s\n", err)
 		return err
 	}
 
 	for _, pod := range podList.Items {
-		for _, device := range devices {
-			if device.host == pod.Status.PodIP {
-				device.host = pod.Status.HostIP
-
-				log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", pod.Status.PodIP, pod.Status.HostIP, device.id)
-			}
-		}
+		result[pod.Status.PodIP] = pod.Status.HostIP
 	}
 
+	quobyteBackend.nodeCache = result
 	return nil
+}
+
+func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList) {
+	for _, device := range devices {
+		if hostIP, ok := quobyteBackend.nodeCache[device.host]; ok {
+			device.host = hostIP
+			log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", device.host, hostIP, device.id)
+		}
+	}
 }
 
 // Filter all nodes containing no devices

@@ -13,5 +13,5 @@ data:
       mountpoint: /var/lib/kubelet/plugins/kubernetes.io~quobyte
       password: quobyte
       user: admin
-      kubernetes: "True"
+      kubernetes: true
       namespace: quobyte

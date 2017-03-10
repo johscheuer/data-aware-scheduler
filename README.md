@@ -13,7 +13,7 @@ $ dep ensure -update
 To build the binary (for linux):
 
 ```
-$ GOOS=linux go build -o scheduler -a --ldflags '-extldflags "-static"' -tags netgo -installsuffix netgo .
+$ GOOS=linux go build -o scheduler -a --ldflags '-extldflags "-static" -s -w' -tags netgo -installsuffix netgo .
 ```
 
 to build a Docker container:

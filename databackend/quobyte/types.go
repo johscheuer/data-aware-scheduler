@@ -10,9 +10,10 @@ import (
 type QuobyteBackend struct {
 	quobyteClient     *quobyteAPI.QuobyteClient
 	quobyteMountpoint string
-	inKubernetes      string
+	inKubernetes      bool
 	namespace         string
 	clientset         *kubernetes.Clientset
+	nodeCache         map[string]string
 }
 
 var _ databackend.DataBackend = &QuobyteBackend{}

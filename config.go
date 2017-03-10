@@ -12,7 +12,7 @@ type schedulerConfig struct {
 	Kubeconfig string
 	Backend    string
 	InCluster  bool
-	Opts       map[string]string
+	Opts       map[string]interface{}
 }
 
 func readConfig(configPath string) schedulerConfig {

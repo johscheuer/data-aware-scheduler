@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -101,4 +102,13 @@ func getAllFilesInsideDir(dir string) []string {
 	}
 
 	return resFiles
+}
+
+func start_trace() time.Time {
+	return time.Now()
+}
+
+func stop_trace(startTime time.Time) {
+	endTime := time.Now()
+	log.Println("Scheduling needed seconds:", endTime.Sub(startTime))
 }
