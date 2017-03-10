@@ -2,17 +2,18 @@ package quobyte
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
 )
 
-func parseXattrSegments(output string) []*segment {
+func parseXattrSegments(xattrString string) []*segment {
 	segments := []*segment{}
-	segs := strings.Split(output, "segment")
+	segs := strings.Split(xattrString, "segment")
 
 	f := func(c rune) bool {
 		return !unicode.IsLetter(c) && !unicode.IsNumber(c) && c != '_'
@@ -86,19 +87,17 @@ func validateAPIURL(apiURL string) error {
 
 func getAllFilesInsideDir(dir string) []string {
 	resFiles := []string{}
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		log.Printf("QuobyteBackend: Failed reading files from dir %s\n%s\n", dir, err)
-	}
 
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-			//TODO do we allow recursive?
-			//resFiles = append(resFiles, getAllFilesInsideDir(file.Name())...)
+	err := filepath.Walk(dir, func(searchPath string, file os.FileInfo, err error) error {
+		if !file.IsDir() {
+			resFiles = append(resFiles, searchPath)
 		}
 
-		resFiles = append(resFiles, file.Name())
+		return nil
+	})
+
+	if err != nil {
+		log.Println(err)
 	}
 
 	return resFiles

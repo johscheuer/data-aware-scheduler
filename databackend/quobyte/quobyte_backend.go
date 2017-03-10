@@ -46,9 +46,11 @@ func NewQuobyteBackend(opts map[string]string, clientset *kubernetes.Clientset) 
 func getSegmentsForFiles(files []string) []*segment {
 	segments := []*segment{}
 	for _, file := range files {
+		log.Printf("Fetch xattr from %s\n", file)
 		b, err := xattr.Getxattr(file, "quobyte.info")
 		if err != nil {
-			log.Printf("QuobyteBackend: Failed fetching Segements from file %s\n%s\n", file, err)
+			log.Printf("QuobyteBackend: Failed fetching Segements from file %s - %s\n", file, err)
+			continue
 		}
 		segments = append(segments, parseXattrSegments(string(b))...)
 	}
@@ -56,7 +58,9 @@ func getSegmentsForFiles(files []string) []*segment {
 	return segments
 }
 
-func getDevices(input *quobyteInput) (deviceList, error) {
+// Get all devices that store data of this file
+func (quobyteBackend *QuobyteBackend) getQuobyteDevices(input *quobyteInput) deviceList {
+	log.Println("Get All Devices")
 	var segments []*segment
 
 	if input.dir != "" {
@@ -68,11 +72,36 @@ func getDevices(input *quobyteInput) (deviceList, error) {
 		segments = append(segments, getSegmentsForFiles(input.files)...)
 	}
 
-	return convertSegmentsToDevices(segments), nil
+	devices, requestIDs := convertSegmentsToDevices(segments)
+	quobyteBackend.getDeviceDetails(devices, requestIDs)
+	return convertDeviceMapIntoSlice(devices)
 }
 
-func convertSegmentsToDevices(segments []*segment) deviceList {
+// Get Quobyte DeviceEndpoints -> where is data located (on which Node)
+func (quobyteBackend *QuobyteBackend) getDeviceDetails(devices map[uint64]*device, requestIDs []uint64) {
+	log.Printf("Get All Device Details for devices: %v\n", requestIDs)
+	response, err := quobyteBackend.quobyteClient.GetDeviceList(requestIDs, []string{"DATA"})
+	if err != nil {
+		// TODO -> better error handling -> retry?
+		log.Println(err)
+		return
+	}
+
+	log.Println(response)
+
+	for _, device := range response.DeviceList.Devices {
+		if dev, ok := devices[device.DeviceID]; ok {
+			dev.host = device.HostName
+			dev.deviceType = device.DetectedDiskType
+		}
+	}
+
+	log.Println(devices)
+}
+
+func convertSegmentsToDevices(segments []*segment) (map[uint64]*device, []uint64) {
 	result := map[uint64]*device{}
+	reqIDs := []uint64{}
 
 	for _, seg := range segments {
 		for _, devID := range seg.stripe.deviceIDs {
@@ -80,16 +109,15 @@ func convertSegmentsToDevices(segments []*segment) deviceList {
 				d.dataSize += uint64(seg.length)
 			} else {
 				result[devID] = &device{
-					id:         devID,
-					host:       "", // Fetch from NetworkEndpoints
-					dataSize:   uint64(seg.length),
-					deviceType: "", // Fetch from NetworkEndpoints
+					id:       devID,
+					dataSize: uint64(seg.length),
 				}
+				reqIDs = append(reqIDs, devID)
 			}
 		}
 	}
 
-	return convertDeviceMapIntoSlice(result)
+	return result, reqIDs
 }
 
 func convertDeviceMapIntoSlice(devices map[uint64]*device) deviceList {
@@ -116,34 +144,20 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 		return nodes[0], nil
 	}
 
-	// Get all devices that store data of this file
-	log.Println("Get All Devices")
-	devices, err := getDevices(input)
-	if err != nil {
-		log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
-		return nodes[0], nil
-	}
-
-	// Get Quobyte DeviceEndpoints -> where is data located (on which Node)
-	log.Println("Get All Device Details")
-	if err := getDeviceDetails(quobyteBackend.quobyteClient, devices); err != nil {
-		log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
+	devices := quobyteBackend.getQuobyteDevices(input)
+	if len(devices) == 0 {
 		return nodes[0], nil
 	}
 
 	// TODO -> option in-kubernetes: True not as String
 	if len(quobyteBackend.inKubernetes) > 0 {
-		log.Println("Resolve Pod IPs")
 		if err := quobyteBackend.resolvePodIPToNodeIP(devices, quobyteBackend.namespace); err != nil {
 			log.Printf("QuobyteBackend: Failed to schedule Pod data-local: %s\n", err)
 			return nodes[0], nil
 		}
 	}
 
-	// Filter all nodes containing no devices
-	log.Println("Get potentials nodes")
 	devices = getDevicesOnPotentialNodes(devices, nodes)
-
 	// We could check here also DeviceType
 	// -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
 	// and implement smarter algos
@@ -157,6 +171,7 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 }
 
 func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList, namespace string) error {
+	log.Println("Resolve Pod IPs")
 	podList, err := quobyteBackend.clientset.Core().Pods(namespace).List(
 		api.ListOptions{
 			LabelSelector: labels.SelectorFromSet(map[string]string{"role": "data"}),
@@ -166,24 +181,24 @@ func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList, n
 	}
 
 	for _, pod := range podList.Items {
-		// TODO iterarte only over not resolved Devices
-		for _, dev := range devices {
-			if dev.host == pod.Status.PodIP {
-				dev.host = pod.Status.HostIP
+		for _, device := range devices {
+			if device.host == pod.Status.PodIP {
+				device.host = pod.Status.HostIP
 
-				log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", pod.Status.PodIP, pod.Status.HostIP, dev.id)
+				log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", pod.Status.PodIP, pod.Status.HostIP, device.id)
 			}
 		}
-
 	}
 
 	return nil
 }
 
+// Filter all nodes containing no devices
 func getDevicesOnPotentialNodes(devices deviceList, nodes []v1.Node) deviceList {
+	log.Println("Get potentials nodes")
 	res := deviceList{}
 
-	// O(Devices x Nodes)
+	// O(Devices x Nodes) --> better data structure?
 	for _, dev := range devices {
 		for _, node := range nodes {
 			for _, addr := range node.Status.Addresses {
@@ -199,22 +214,6 @@ func getDevicesOnPotentialNodes(devices deviceList, nodes []v1.Node) deviceList 
 	sort.Sort(res)
 
 	return res
-}
-
-func getDeviceDetails(quobyteClient *quobyteAPI.QuobyteClient, devices deviceList) error {
-	for _, dev := range devices {
-		endpoints, err := quobyteClient.GetDeviceNetworkEndpoints(dev.id)
-		if err != nil {
-			// TODO -> better error handling
-			log.Println(err)
-			continue
-		}
-
-		dev.host = endpoints.Endpoints[0].Hostname
-		dev.deviceType = endpoints.Endpoints[0].DeviceType
-	}
-
-	return nil
 }
 
 func validateVolume(volumeName string, volumes []v1.Volume) error {
@@ -281,7 +280,9 @@ func (quobyteBackend *QuobyteBackend) parsePodSpec(pod *v1.Pod) (*quobyteInput, 
 		input.files[i] = path.Join(quobyteBackend.quobyteMountpoint, volume, input.files[i])
 	}
 
-	input.dir = path.Join(quobyteBackend.quobyteMountpoint, volume, input.dir)
+	if input.dir != "" {
+		input.dir = path.Join(quobyteBackend.quobyteMountpoint, volume, input.dir)
+	}
 
 	return input, nil
 }
