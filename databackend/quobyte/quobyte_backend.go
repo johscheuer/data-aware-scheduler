@@ -158,6 +158,7 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 
 	devices := quobyteBackend.getQuobyteDevices(input)
 	if len(devices) == 0 {
+		log.Printf("No suitable Devices found on Nodes -> schedule on first Node in list %s\n", nodes[0].ObjectMeta.Labels["kubernetes.io/hostname"])
 		return nodes[0], nil
 	}
 
@@ -203,6 +204,7 @@ func (quobyteBackend *QuobyteBackend) getAllDataPods() error {
 }
 
 func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList) {
+	log.Println("Resolve Pod IP's")
 	for _, device := range devices {
 		if hostIP, ok := quobyteBackend.nodeCache[device.host]; ok {
 			device.host = hostIP

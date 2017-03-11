@@ -67,3 +67,4 @@ Now start the Scheduler:
 - [X] Support Multiple Files/directory
 - [X] Containerized Scheduler
 - [ ] look at taint
+- [ ] Make it work with PVC
