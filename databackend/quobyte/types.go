@@ -31,7 +31,7 @@ type stripe struct {
 type device struct {
 	id         uint64
 	host       string // Fetch from Quobyte API
-	dataSize   uint64 // TODO use BigInt?
+	dataSize   uint64 // TODO use -> &resource.Quantity{}
 	deviceType string // Fetch from Quobyte API -> SSD/HDD
 }
 

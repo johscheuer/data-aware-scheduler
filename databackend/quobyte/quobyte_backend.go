@@ -241,10 +241,10 @@ func filterNodesAndDevices(devices deviceList, nodes []v1.Node) (v1.Node, error)
 
 	for _, dev := range devices {
 		if node, ok := potential_nodes[dev.host]; ok {
-			if size, ok := result[dev.host]; ok {
-				result[dev.host] += size
+			if _, ok := result[dev.host]; ok {
+				result[dev.host] += dev.dataSize
 			} else {
-				result[dev.host] = size
+				result[dev.host] = dev.dataSize
 				potential_nodes[dev.host] = node
 			}
 			continue
