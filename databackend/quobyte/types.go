@@ -4,7 +4,6 @@ import (
 	quobyteAPI "github.com/johscheuer/api"
 	"github.com/johscheuer/data-aware-scheduler/databackend"
 	"k8s.io/client-go/1.5/kubernetes"
-	"k8s.io/client-go/1.5/pkg/api/v1"
 )
 
 type QuobyteBackend struct {
@@ -34,7 +33,6 @@ type device struct {
 	host       string // Fetch from Quobyte API
 	dataSize   uint64 // TODO use BigInt?
 	deviceType string // Fetch from Quobyte API -> SSD/HDD
-	node       v1.Node
 }
 
 type deviceList []*device
@@ -42,16 +40,4 @@ type deviceList []*device
 type quobyteInput struct {
 	files []string
 	dir   string
-}
-
-func (devices deviceList) Len() int {
-	return len(devices)
-}
-
-func (devices deviceList) Less(i, j int) bool {
-	return devices[i].dataSize < devices[j].dataSize
-}
-
-func (devices deviceList) Swap(i, j int) {
-	devices[i], devices[j] = devices[j], devices[i]
 }

@@ -3,6 +3,7 @@ package quobyte
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"k8s.io/client-go/1.5/pkg/api/v1"
 )
 
 func parseXattrSegments(xattrString string) []*segment {
@@ -111,4 +114,26 @@ func start_trace() time.Time {
 func stop_trace(startTime time.Time) {
 	endTime := time.Now()
 	log.Println("Scheduling needed seconds:", endTime.Sub(startTime))
+}
+
+func getNodeWithBiggestChunk(nodes map[string]uint64) string {
+	var resultNode string
+	// Todo use Big or recalculate to TB/GB/MB/KB?
+	var biggestChunk uint64
+
+	for node, chunk := range nodes {
+		if chunk <= biggestChunk {
+			continue
+		}
+
+		resultNode = node
+	}
+
+	return resultNode
+}
+
+func chooseRandomNode(nodes []v1.Node) v1.Node {
+	rand.Seed(time.Now().Unix())
+
+	return nodes[rand.Intn(len(nodes))]
 }
