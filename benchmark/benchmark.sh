@@ -18,40 +18,45 @@ function wait_for_completion() {
 function cleanup_volume() {
     if kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume show $1 &> /dev/null;
     then
-        kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume delete $1 root root BENCHMARK 0777
+        kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume delete -f $1
     fi
 
-    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create $1 root root BENCHMARK 0777
+    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create $1 root root $2 0777
 }
 
-if [ $(kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config list | grep BENCHMARK | wc -l) -eq 0 ];
-then
-    cat ./quobyte_config.dump | kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config import BENCHMARK
-fi
+function import_config() {
+    if [ $(kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config list | grep $1 | wc -l) -eq 0 ];
+    then
+        cat ./volume_configs/$1.conf | kubectl exec -n quobyte -i qmgmt-pod -- qmgmt -u api:7860 volume config import $1
+    fi
+}
 
-kubectl delete -f simple_dd/ &> /dev/null
-#kubectl delete -f mysql/
+import_config simple
+import_config mysql
 
-cleanup_volume mysql-store
-cleanup_volume dd-test
+kubectl delete -f simple/ &> /dev/null
+kubectl delete -f mysql/ &> /dev/null
+
+cleanup_volume mysql-store mysql
+cleanup_volume simple-test simple
 
 if ! kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume show result-store &> /dev/null;
 then
-    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BENCHMARK 0777
+    kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BASE 0777
 fi
 
-echo "Run Benchmark with dd"
-echo "Setup Benchmark with dd"
-kubectl create -f simple_dd/setup_job.yaml
-wait_for_completion benchmark-init-dd
+echo "Run simple Benchmark with fio"
+echo "Setup simple Benchmark with fio"
+kubectl create -f simple/setup_job.yaml
+wait_for_completion benchmark-simple-init
 
-echo "Run non data local Benchmark with dd"
-kubectl create -f simple_dd/non_data_local.yaml
-wait_for_completion benchmark-non-local-dd
+echo "Run non data local Benchmark with fio"
+kubectl create -f simple/non_data_local.yaml
+wait_for_completion benchmark-simple-non-local
 
-echo "Run data local Benchmark with dd"
-kubectl create -f simple_dd/data_local.yaml
-wait_for_completion benchmark-local-dd
+echo "Run data local Benchmark with fio"
+kubectl create -f simple/data_local.yaml
+wait_for_completion benchmark-simple-local
 # TODO how to get results?
 
 #TODO mysql
