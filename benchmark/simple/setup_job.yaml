@@ -1,34 +1,37 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: benchmark-init-dd
+  name: benchmark-simple-init
 spec:
   template:
     metadata:
-      name: benchmark-init-dd
+      name: benchmark-simple-init
     spec:
       restartPolicy: Never
       containers:
-      - name: benchmark-init-dd
+      - name: benchmark-simple-init
         image: ubuntu:16.04
         resources:
           limits:
-            cpu: 2000m
-            memory: 5Gi
+            cpu: 2
+            memory: 4Gi
           requests:
-            cpu: 1000m
+            cpu: 2
             memory: 4Gi
         command:
           - /bin/bash
           - -xec
           - |
+            apt-get -qq update
+            apt-get -qq install -y fio
             rm -f /test/benchmark.bin
-            dd if=/dev/zero of=/test/benchmark.bin bs=1G count=40
+
+            fio --rw=write --name=test --bs=4k --direct=1 --filename=/test/benchmark.bin --size=1G --numjobs=1 --ioengine=libaio --iodepth=32
         volumeMounts:
-            - name: dd-test
+            - name: simple-test
               mountPath: /test
       volumes:
-        - name: dd-test
+        - name: simple-test
           quobyte:
             registry: registry:7861
-            volume: dd-test
+            volume: simple-test

@@ -1,41 +1,46 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: benchmark-non-local-dd
+  name: benchmark-simple-non-local
 spec:
   template:
     metadata:
-      name: benchmark-non-local-dd
+      name: benchmark-simple-non-local
     spec:
       restartPolicy: Never
       containers:
-      - name: benchmark-non-local-dd
+      - name: benchmark-simple-non-local
         image: ubuntu:16.04
         env:
           - name: RES_FILE
-            value: "non_local_dd.csv"
+            value: "simple_non_local.log"
         command:
           - /bin/bash
           - -xec
           - |
-            dd if=/test/benchmark.bin of=/dev/zero &> /results/${RES_FILE}
+            apt-get -qq update
+            apt-get -qq install -y fio
+            mkdir -p /results/fio/
+            fio --rw=read --name=test --bs=4k --direct=1 --filename=/test/benchmark.bin --size=1G --numjobs=1 --ioengine=libaio --iodepth=32 &> /results/fio/${RES_FILE}
         resources:
             limits:
-              cpu: 2000m
+              cpu: 2
               memory: 4Gi
             requests:
-              cpu: 1000m
+              cpu: 2
               memory: 4Gi
         volumeMounts:
             - name: result-store
               mountPath: /results
-            - name: dd-test
+            - name: simple-test
               mountPath: /test
+      nodeSelector:
+        kubernetes.io/hostname: NODENAME
       volumes:
-        - name: dd-test
+        - name: simple-test
           quobyte:
             registry: registry:7861
-            volume: dd-test
+            volume: simple-test
         - name: result-store
           quobyte:
             registry: registry:7861
