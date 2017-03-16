@@ -116,20 +116,25 @@ func stop_trace(startTime time.Time) {
 	log.Println("Scheduling needed seconds:", endTime.Sub(startTime))
 }
 
-func getNodeWithBiggestChunk(nodes map[string]uint64) string {
-	var resultNode string
+func getNodesWithBiggestChunk(nodes map[string]uint64) []string {
+	log.Printf("Get Nodes with biggest Chunk: %v", nodes)
+	resultNodes := []string{}
 	// Todo use Big or recalculate to TB/GB/MB/KB?
 	var biggestChunk uint64
 
 	for node, chunk := range nodes {
-		if chunk <= biggestChunk {
-			continue
+		if chunk > biggestChunk {
+			resultNodes = resultNodes[:0]
+			biggestChunk = chunk
 		}
 
-		resultNode = node
+		if chunk == biggestChunk {
+			resultNodes = append(resultNodes, node)
+		}
 	}
 
-	return resultNode
+	log.Printf("Result: %v", resultNodes)
+	return resultNodes
 }
 
 func chooseRandomNode(nodes []v1.Node) v1.Node {

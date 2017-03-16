@@ -91,8 +91,6 @@ func (quobyteBackend *QuobyteBackend) getDeviceDetails(devices map[uint64]*devic
 		return
 	}
 
-	log.Println(response)
-
 	for _, device := range response.DeviceList.Devices {
 		if dev, ok := devices[device.DeviceID]; ok {
 			dev.host = device.HostName
@@ -170,13 +168,14 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	// -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
 	// and implement smarter algos
 	// We schedule only on the first node -> we could spread them
-	p_node, err := filterNodesAndDevices(devices, nodes)
-	if err != nil {
+	p_nodes, err := filterNodesAndDevices(devices, nodes)
+	if err != nil || len(p_nodes) == 0 {
 		return schedulingDatalocalFailed(err.Error(), nodes)
 	}
-	log.Printf("Schedule pod on Node %s\n", p_node.ObjectMeta.Labels["kubernetes.io/hostname"])
+	dst := chooseRandomNode(p_nodes)
+	log.Printf("Schedule pod on Node %s\n", dst.ObjectMeta.Labels["kubernetes.io/hostname"])
 
-	return p_node, nil
+	return dst, nil
 }
 
 func schedulingDatalocalFailed(msg string, nodes []v1.Node) (v1.Node, error) {
@@ -234,10 +233,11 @@ func getPotentialNodesMap(nodes []v1.Node) map[string]v1.Node {
 }
 
 // Filter all nodes containing no devices
-func filterNodesAndDevices(devices deviceList, nodes []v1.Node) (v1.Node, error) {
+func filterNodesAndDevices(devices deviceList, nodes []v1.Node) ([]v1.Node, error) {
 	result := map[string]uint64{}
 	potential_nodes := getPotentialNodesMap(nodes)
 	log.Println("Sum devices on Nodes")
+	log.Println(devices)
 
 	for _, dev := range devices {
 		if node, ok := potential_nodes[dev.host]; ok {
@@ -250,14 +250,21 @@ func filterNodesAndDevices(devices deviceList, nodes []v1.Node) (v1.Node, error)
 			continue
 		}
 	}
+	log.Printf("Intermediate Result: %v\n", result)
 
-	log.Println(result)
-	nodeName := getNodeWithBiggestChunk(result)
-	if node, ok := potential_nodes[nodeName]; ok {
-		return node, nil
+	node_list := []v1.Node{}
+	for _, node := range getNodesWithBiggestChunk(result) {
+		if n, ok := potential_nodes[node]; ok {
+			node_list = append(node_list, n)
+		}
 	}
 
-	return v1.Node{}, fmt.Errorf("No suitable Devices found on potential Nodes")
+	log.Printf("Node List: %v", node_list)
+	if len(node_list) > 0 {
+		return node_list, nil
+	}
+
+	return node_list, fmt.Errorf("No suitable Devices found on potential Nodes")
 }
 
 func validateVolume(volumeName string, volumes []v1.Volume) error {
