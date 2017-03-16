@@ -167,7 +167,6 @@ func (quobyteBackend *QuobyteBackend) GetBestFittingNode(nodes []v1.Node, pod *v
 	// We could check here also DeviceType
 	// -> e.q. Fast Data (SSD) / Disk Capacity (HDD)
 	// and implement smarter algos
-	// We schedule only on the first node -> we could spread them
 	p_nodes, err := filterNodesAndDevices(devices, nodes)
 	if err != nil || len(p_nodes) == 0 {
 		return schedulingDatalocalFailed(err.Error(), nodes)
