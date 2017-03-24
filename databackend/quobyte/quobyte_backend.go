@@ -198,6 +198,7 @@ func (quobyteBackend *QuobyteBackend) getAllDataPods() error {
 
 	for _, pod := range podList.Items {
 		result[pod.Status.PodIP] = pod.Status.HostIP
+		result[pod.ObjectMeta.Name] = pod.Status.HostIP
 	}
 
 	quobyteBackend.nodeCache = result
@@ -206,10 +207,12 @@ func (quobyteBackend *QuobyteBackend) getAllDataPods() error {
 
 func (quobyteBackend *QuobyteBackend) resolvePodIPToNodeIP(devices deviceList) {
 	log.Println("Resolve Pod IP's")
+	log.Println(quobyteBackend.nodeCache)
 	for _, device := range devices {
+		log.Printf("Device Host: %s", device.host)
 		if hostIP, ok := quobyteBackend.nodeCache[device.host]; ok {
-			device.host = hostIP
 			log.Printf("Replace Pod IP %s with Host IP %s for Device %d\n", device.host, hostIP, device.id)
+			device.host = hostIP
 		}
 	}
 }

@@ -140,7 +140,7 @@ func fit(clientset *kubernetes.Clientset, pod *v1.Pod) ([]v1.Node, error) {
 		if cpu, ok := node.Status.Allocatable["cpu"]; ok {
 			cpu.Sub(*resourceUsage[node.ObjectMeta.Name])
 			if cpu.Cmp(spaceRequired) <= 0 {
-				fitFailures = append(fitFailures, fmt.Sprintf("fit failure on node (%s): Insufficient CPU", node.ObjectMeta.Name))
+				fitFailures = append(fitFailures, fmt.Sprintf("fit failure on node (%s): Requested %v CPU only %v CPU free", node.ObjectMeta.Name, cpu, spaceRequired))
 				continue
 			}
 			nodes = append(nodes, node)
