@@ -21,21 +21,21 @@ spec:
             apt-get -qq update
             apt-get -qq install -y fio
             mkdir -p /results/fio/
-            fio --rw=read --name=test --bs=4k --direct=1 --filename=/test/benchmark.bin --size=1G --numjobs=1 --ioengine=libaio --iodepth=32 &> /results/fio/${RES_FILE}
+            fio --rw=read --name=test --bs=1M --filename=/test/benchmark.bin --size=20G --numjobs=1 &> /results/fio/${RES_FILE}
         resources:
-            limits:
-              cpu: 2
-              memory: 4Gi
-            requests:
-              cpu: 2
-              memory: 4Gi
+          limits:
+            cpu: 10
+            memory: 32Gi
+          requests:
+            cpu: 10
+            memory: 32Gi
         volumeMounts:
             - name: result-store
               mountPath: /results
             - name: simple-test
               mountPath: /test
       nodeSelector:
-        kubernetes.io/hostname: NODENAME
+        kubernetes.io/hostname: 10.241.0.4
       volumes:
         - name: simple-test
           quobyte:

@@ -16,6 +16,10 @@ spec:
         app: nginx
       name: nginx
     spec:
+      hostname:
+        valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
       containers:
         - name: nginx
           image: "nginx:1.11.1-alpine"

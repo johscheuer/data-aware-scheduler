@@ -13,11 +13,11 @@ spec:
         image: ubuntu:16.04
         resources:
           limits:
-            cpu: 2
-            memory: 4Gi
+            cpu: 10
+            memory: 32Gi
           requests:
-            cpu: 2
-            memory: 4Gi
+            cpu: 10
+            memory: 32Gi
         command:
           - /bin/bash
           - -xec
@@ -26,7 +26,7 @@ spec:
             apt-get -qq install -y fio
             rm -f /test/benchmark.bin
 
-            fio --rw=write --name=test --bs=4k --direct=1 --filename=/test/benchmark.bin --size=1G --numjobs=1 --ioengine=libaio --iodepth=32
+            fio --rw=write --name=test --bs=1M --filename=/test/benchmark.bin --size=20G --numjobs=1
         volumeMounts:
             - name: simple-test
               mountPath: /test

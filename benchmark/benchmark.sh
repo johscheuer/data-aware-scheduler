@@ -44,7 +44,7 @@ if ! kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume show resul
 then
     kubectl -n quobyte exec -i qmgmt-pod -- qmgmt -u api:7860 volume create result-store root root BASE 0777
 fi
-
+exit
 echo "Run simple Benchmark with fio"
 echo "Setup simple Benchmark with fio"
 kubectl create -f simple/setup_job.yaml

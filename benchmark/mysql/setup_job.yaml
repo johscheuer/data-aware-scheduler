@@ -28,12 +28,12 @@ spec:
                 name: benchmark-config
                 key: table_size
         resources:
-            limits:
-              cpu: 4
-              memory: 4Gi
-            requests:
-              cpu: 4
-              memory: 4Gi
+          limits:
+            cpu: 10
+            memory: 32Gi
+          requests:
+            cpu: 10
+            memory: 32Gi
         command:
           - /bin/bash
           - -xec
