@@ -19,7 +19,7 @@ $ GOOS=linux go build -o scheduler -a --ldflags '-extldflags "-static" -s -w' -t
 to build a Docker container:
 
 ```
-$ VERSION=0.0.1
+$ VERSION=0.0.2
 $ docker build -t johscheuer/data-aware-scheduler:$VERSION .
 $ docker push johscheuer/data-aware-scheduler:$VERSION
 ```
@@ -60,7 +60,7 @@ Now start the Scheduler:
 # TODO
 
 - [X] Docs
-- [ ] Memory in scheduling
+- [X] Memory in scheduling
 - [X] Localisation (mountpoint + xattr)
 - [X] Annotate used file ?
 - [ ] Support DiskType
