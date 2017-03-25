@@ -3,4 +3,4 @@ config
 .vscode/
 config.yaml
 .DS_Store
-benchmark/results
+benchmark
