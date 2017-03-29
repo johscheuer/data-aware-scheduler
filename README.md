@@ -1,5 +1,7 @@
 # Data Aware Scheduler (PoC)
 
+This Scheduler works (and is tested) with Kubernetes 1.5
+
 ## Dependency Managment
 
 For the dependency managment was (dep)[https://github.com/golang/dep] used.
@@ -28,7 +30,7 @@ $ docker push johscheuer/data-aware-scheduler:$VERSION
 
 ### Prerequisites
 
-- Running Quobyte Cluster
+- Running Quobyte Cluster (you can use this [tool](https://github.com/inovex/quobyte-kubernetes-operator) for a quick start)
 - Running Kubernetes Cluster
 
 ### Inside Kubernetes
@@ -56,15 +58,3 @@ Now start the Scheduler:
 ./scheduler --config=./config.yaml
 
 ```
-
-# TODO
-
-- [X] Docs
-- [X] Memory in scheduling
-- [X] Localisation (mountpoint + xattr)
-- [X] Annotate used file ?
-- [ ] Support DiskType
-- [X] Support Multiple Files/directory
-- [X] Containerized Scheduler
-- [ ] look at taint
-- [ ] Make it work with PVC

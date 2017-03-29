@@ -95,17 +95,23 @@ func getAllocatableNodes(nodes []v1.Node, requiredResources map[string]int64) ([
 
 	for _, node := range nodes {
 		if allocatableCpu, ok := node.Status.Allocatable["cpu"]; ok {
-			log.Printf("CPU: Alloc: %v - Needed: %v", allocatableCpu.MilliValue(), requiredResources["cpu"])
 			if allocatableCpu.MilliValue() < requiredResources["cpu"] {
-				fitFailures = append(fitFailures, fmt.Sprintf("fit failure on node (%s): Requested %v CPU only %v CPU free", node.ObjectMeta.Name, allocatableCpu.MilliValue(), requiredResources["cpu"]))
+				fitFailures = append(fitFailures,
+					fmt.Sprintf("fit failure on node (%s): Requested %v CPU only %v CPU free",
+						node.ObjectMeta.Name,
+						allocatableCpu.MilliValue(),
+						requiredResources["cpu"]))
 				continue
 			}
 		}
 
 		if allocatableMemory, ok := node.Status.Allocatable["memory"]; ok {
-			log.Printf("Memory: Alloc: %v - Needed: %v", allocatableMemory.Value(), requiredResources["memory"])
 			if allocatableMemory.Value() < requiredResources["memory"] {
-				fitFailures = append(fitFailures, fmt.Sprintf("fit failure on node (%s): Requested %v memory only %v memory free", node.ObjectMeta.Name, allocatableMemory.Value(), requiredResources["memory"]))
+				fitFailures = append(fitFailures,
+					fmt.Sprintf("fit failure on node (%s): Requested %v memory only %v memory free",
+						node.ObjectMeta.Name,
+						allocatableMemory.Value(),
+						requiredResources["memory"]))
 				continue
 			}
 		}
